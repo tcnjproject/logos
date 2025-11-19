@@ -11,6 +11,6 @@
   - TODO: Create a script for automatic environment setup 
 
 ## Run script
-`python .\stage1_1.py --model large-v3 --non_english`
+`python .\fr_1_3.py --model large-v3 --non_english`
  - Note: the script will download the `large-v3` model to your PC (about 2GB in size)
   

@@ -12,4 +12,5 @@
 
 ## Run script
 `python .\stage1_1.py --model large-v3 --non_english`
+ - Note: the script will download the `large-v3` model to your PC (about 2GB in size)
   

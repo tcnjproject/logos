@@ -3,7 +3,7 @@
 ### FR 1.3
 - `fr_1_3.py` implements FR 1.3 (Real-time Transcription).
   It uses whisper large-v3 model to achieve >90% transcription accuracy.
-   - **TODO**: improve latency. On my PC, latency is > 2seconds probably because I am not using a GPU. I will test with add GPU support and test for latency improvement
+   - **TODO**: Improve latency. On my PC, latency is > 2 seconds probably because I am not using a GPU. I will add GPU support and test for latency improvement.
 
 ## Dependencies
 - Python 3.9 

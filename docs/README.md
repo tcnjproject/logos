@@ -20,4 +20,5 @@ This folder exists to help builders (humans + agents) implement the **AI Sermon 
 - `docs/definition-of-done.md`: measurable release criteria for v1.
 - `docs/open-questions.md`: decisions and unknowns that must be resolved.
 - `docs/decisions.md`: lightweight decision log (what/why/date/owner).
-- Product backlog: https://docs.google.com/spreadsheets/d/1Dbot-Dtra6cXMyz8mLQyLjB2X4M_St0KuiwVgjuU7XU/edit?usp=sharing
+- Product backlog: [Link to Product Backlog on google sheet](https://docs.google.com/spreadsheets/d/1Dbot-Dtra6cXMyz8mLQyLjB2X4M_St0KuiwVgjuU7XU/edit?usp=sharing) (TBD)
+- Team Charter: [Link to Team charter](https://docs.google.com/document/d/1hFnezNtSZtJnvObAf-bmTZHjYu_d9SEv5sMrDemCtY8/edit?tab=t.0#heading=h.r036a3oby8l5) (TBD)

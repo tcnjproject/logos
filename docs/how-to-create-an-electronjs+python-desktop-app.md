@@ -8,6 +8,7 @@ We’ll use:
 
 
 ### 1. Project Structure
+```
 my-app/
 │
 ├── backend/
@@ -20,7 +21,7 @@ my-app/
 │   ├── index.html
 │
 └── build/
-
+```
 
 ### 2. Python Backend (Flask Example)
 For this project, FastAPI will be used

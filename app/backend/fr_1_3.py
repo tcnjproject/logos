@@ -1,5 +1,5 @@
 # TCNJ AI/ML Group
-# Reference: https://github.com/davabase/whisper_real_time
+# Source: https://github.com/davabase/whisper_real_time
 #
 #F R-1.3: Real-time Transcription
 # Priority: P0 (Critical)
@@ -24,13 +24,17 @@ from queue import Queue
 from time import sleep
 from sys import platform
 
+from faster_whisper import WhisperModel
+
+# for distil-whisper
+from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor, pipeline
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", default="small", help="Model to use",
-                        choices=["tiny", "base", "small", "medium", "large", "turbo", "large-v3"])
-    parser.add_argument("--non_english", action='store_true',
-                        help="Don't use the english model.")
+                        choices=["large-v3", "faster-whisper", "distil-whisper"])
+    # parser.add_argument("--non_english", action='store_true',
+    #                     help="Don't use the english model.")
     parser.add_argument("--energy_threshold", default=1000,
                         help="Energy level for mic to detect.", type=int)
     parser.add_argument("--record_timeout", default=2,
@@ -73,11 +77,24 @@ def main():
     else:
         source = sr.Microphone(sample_rate=16000)
 
-    # Load / Download model
-    model = args.model
-    if args.model != "large" and not args.non_english:
-        model = model + ".en"
-    audio_model = whisper.load_model(model)
+    # Check for GPU
+    device = "cuda:0" if torch.cuda.is_available() else "cpu"
+    torch_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
+    print(f"Using device: {device}")
+    
+    if args.model == "faster-whisper":
+        model = "large-v3"
+        # run on CPU with INT8
+        audio_model = WhisperModel(model, device=device, compute_type="int8")
+    elif args.model == "distil-whisper":
+        model = "distil-whisper/distil-large-v3"
+        audio_model = AutoModelForSpeechSeq2Seq.from_pretrained(model, torch_dtype=torch_dtype, low_cpu_mem_usage=True, use_safetensors=True)
+        audio_model.to(device)
+        processor = AutoProcessor.from_pretrained(model)
+    else:
+        model = args.model
+        audio_model = whisper.load_model(model)
+    
 
     record_timeout = args.record_timeout
     phrase_timeout = args.phrase_timeout
@@ -130,8 +147,17 @@ def main():
                 audio_np = np.frombuffer(phrase_bytes, dtype=np.int16).astype(np.float32) / 32768.0
 
                 # Read the transcription.
-                result = audio_model.transcribe(audio_np, fp16=torch.cuda.is_available())
-                text = result['text'].strip()
+                if args.model == "faster-whisper":
+                    segments, _ = audio_model.transcribe(audio_np, beam_size=5)
+                    text = " ".join([segment.text for segment in segments]).strip()
+                elif args.model == "distil-whisper":
+                    inputs = processor(audio_np, sampling_rate=16000, return_tensors="pt")
+                    inputs = {k: v.to(device) for k, v in inputs.items()}
+                    generated_ids = audio_model.generate(**inputs)
+                    text = processor.batch_decode(generated_ids, skip_special_tokens=True)[0].strip()
+                else:
+                    result = audio_model.transcribe(audio_np, fp16=torch.cuda.is_available())
+                    text = result['text'].strip()
 
                 # If we detected a pause between recordings, add a new item to our transcription.
                 # Otherwise edit the existing one.

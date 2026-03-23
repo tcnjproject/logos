@@ -2,8 +2,17 @@
 
 ## Dependencies
 - Python 3.9 and later
-- Run: `pip install -r backend/requirements.txt`.
-  - TODO: Create a script for automatic environment setup 
+
+## Setup a python virtual environment
+
+- `cd .\app\backend`
+- `python -m venv .venv`
+- On Windows (powershell): `.venv\Scripts\Activate.ps1`. On Linux/MacOS: `source .venv/bin/activate`
+- `echo ".venv" >> .gitignore`
+- `echo "__pycache__" >> .gitignore`
+- `python -m pip install --upgrade pip`
+- `pip install -r requirements.txt`
+- `uvicorn server:app --reload`
 
 ### transcribe.py
 - `transcribe.py` implements FR 1.3 (Real-time Transcription).
@@ -15,5 +24,5 @@
   
 ### server.py
 - Based on FastAPI. This script implements the backend API server that communicates with the frontend.
-- Run:python backend/server.py
+- Run with `uvicorn server:app --reload`
 - Several API endpoints will be available to the frontend once this server is started.

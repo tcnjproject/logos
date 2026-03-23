@@ -161,10 +161,11 @@ frontend/index.html
 
 ### 4. Packaging Python Backend
 We’ll use PyInstaller to bundle Python into an executable.
-Bashcd backend
+```bash
+cd backend
 pip install pyinstaller
 pyinstaller --onefile server.py --distpath dist/server
-
+```
 This creates:
 backend/dist/server/server.exe
 
@@ -176,10 +177,9 @@ npm install
 npm run build
 ```
 This will create a standalone .exe in dist/ that:
-
-Starts the Python backend automatically
-Opens the Electron frontend
-Communicates via HTTP
+- Starts the Python backend automatically
+- Opens the Electron frontend
+- Communicates via HTTP
 
 
 ### 6. Notes & Best Practices

@@ -3,8 +3,8 @@
 ## Dependencies
 - Python 3.9 and later
 
-## Setup a python virtual environment
-
+## Setup
+Setup the backend server in a virtual environment with the following steps:
 - `cd .\app\backend`
 - `python -m venv .venv`
 - On Windows (powershell): `.venv\Scripts\Activate.ps1`. On Linux/MacOS: `source .venv/bin/activate`

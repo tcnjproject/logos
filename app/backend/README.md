@@ -8,8 +8,6 @@
 - `cd .\app\backend`
 - `python -m venv .venv`
 - On Windows (powershell): `.venv\Scripts\Activate.ps1`. On Linux/MacOS: `source .venv/bin/activate`
-- `echo ".venv" >> .gitignore`
-- `echo "__pycache__" >> .gitignore`
 - `python -m pip install --upgrade pip`
 - `pip install -r requirements.txt`
 - `uvicorn server:app --reload`

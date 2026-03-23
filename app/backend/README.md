@@ -11,6 +11,7 @@ Setup the backend server in a virtual environment with the following steps:
 - `python -m pip install --upgrade pip`
 - `pip install -r requirements.txt`
 - `uvicorn server:app --reload`
+- When done, deactiavte the virtual environment with `deactivate`
 
 ### transcribe.py
 - `transcribe.py` implements FR 1.3 (Real-time Transcription).

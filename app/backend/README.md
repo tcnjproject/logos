@@ -25,3 +25,7 @@ Setup the backend server in a virtual environment with the following steps:
 - Based on FastAPI. This script implements the backend API server that communicates with the frontend.
 - Run with `uvicorn server:app --reload`
 - Several API endpoints will be available to the frontend once this server is started.
+  - `POST /v1/speech-to-text` to transcribe an audio
+  - `GET /v1/speech-to-text/transcripts/:transcription_id` to retrieve a previously generated transcript by its ID.
+  - `DELETE /v1/speech-to-text/transcripts/:transcription_id` to delete a previously generated transcript by its ID.
+  - `WSS /v1/speech-to-text/realtime` for realtime speech-to-text transcription service. This WebSocket API enables streaming audio input and receiving transcription results

@@ -13,26 +13,157 @@
 
 
 import argparse
-import os
+import os, sys
 import numpy as np
 import speech_recognition as sr
-import whisper
+# import whisper
 import torch
 
 from datetime import datetime, timedelta
 from queue import Queue
 from time import sleep
 from sys import platform
+from pathlib import Path
 
-from faster_whisper import WhisperModel
+# from faster_whisper import WhisperModel
 
 # for distil-whisper
-from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor, pipeline
+# from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor, pipeline
+
+ROOT_DIR = Path(os.getcwd()).as_posix()
+os.environ["HF_HOME"] = ROOT_DIR + "/models"
+os.environ["HF_HUB_CACHE"] = ROOT_DIR + "/models"
+os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "true"
+if sys.platform == "win32":
+    os.environ["PATH"] = ROOT_DIR + f";{ROOT_DIR}/ffmpeg;" + os.environ["PATH"]
+
+MODEL_CONFIG = {
+        "parakeet-tdt-0.6b-v3": {
+            "hf_id": "nemo-parakeet-tdt-0.6b-v3",
+            "quantization": "int8",
+            "description": "INT8 (fastest)"
+        },
+    }
+
+# Model cache for lazy loading
+model_cache = {}
+
+def get_parakeet_model():
+    """
+    Get or load the parakeet model with lazy loading and caching.
+        
+    Returns:
+        Loaded ASR model instance
+    """
+    model_name = "parakeet-tdt-0.6b-v3"
+    
+    # Return cached model if available
+    if model_name in model_cache:
+        print(f"Using cached model: {model_name}")
+        return model_cache[model_name]
+    
+    # Load new model
+    print(f"Loading model: {model_name}")
+    config = MODEL_CONFIG[model_name]
+    
+    try:
+        import onnxruntime as ort
+        
+        # Reuse providers from startup
+        available_providers = ort.get_available_providers()
+        providers_to_try = []
+        if "TensorrtExecutionProvider" in available_providers:
+            providers_to_try.append("TensorrtExecutionProvider")
+        if "CUDAExecutionProvider" in available_providers:
+            providers_to_try.append("CUDAExecutionProvider")
+        providers_to_try.append("CPUExecutionProvider")
+        
+        # Configure session options
+        sess_options = ort.SessionOptions()
+        sess_options.intra_op_num_threads = 4
+        sess_options.inter_op_num_threads = 1
+        sess_options.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
+        sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+        
+        model = onnx_asr.load_model(
+            config["hf_id"],
+            quantization=config["quantization"],
+            providers=providers_to_try,
+            sess_options=sess_options,
+        ).with_timestamps()
+        
+        # Cache the loaded model
+        model_cache[model_name] = model
+        print(f"Model {model_name} loaded successfully")
+        
+        return model
+    except Exception as e:
+        print(f"❌ Failed to load model {model_name}: {e}")
+        import traceback
+        traceback.print_exc()
+        # Try to return the default cached model if available
+        if "parakeet-tdt-0.6b-v3" in model_cache:
+            print(f"⚠️ Falling back to cached default model")
+            return model_cache["parakeet-tdt-0.6b-v3"]
+        else:
+            # If we can't even get the default, we have a serious problem
+            raise RuntimeError(f"Failed to load model {model_name} and no fallback available")
+
+def load_parakeet_model():
+    try:
+        print("\nInitializing ONNX Runtime...")
+        import onnx_asr
+        import onnxruntime as ort
+        
+        # Detect available providers
+        available_providers = ort.get_available_providers()
+        print(f"Available providers: {available_providers}")
+        
+        # Priority: Tensorrt, CUDA, CPU
+        providers_to_try = []
+        if "TensorrtExecutionProvider" in available_providers:
+            providers_to_try.append("TensorrtExecutionProvider")
+        if "CUDAExecutionProvider" in available_providers:
+            providers_to_try.append("CUDAExecutionProvider")
+        providers_to_try.append("CPUExecutionProvider")
+        
+        print(f"Using providers: {providers_to_try}")
+
+        # Load default INT8 model at startup
+        print("\nLoading default Parakeet TDT 0.6B V3 ONNX model with INT8 quantization...")
+        
+        # Configure session options for optimal CPU performance
+        sess_options = ort.SessionOptions()
+        sess_options.intra_op_num_threads = 4  # Match Waitress threads
+        sess_options.inter_op_num_threads = 1
+        sess_options.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
+        sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+
+        default_config = MODEL_CONFIG["parakeet-tdt-0.6b-v3"]
+        asr_model = onnx_asr.load_model(
+            default_config["hf_id"],
+            quantization=default_config["quantization"],
+            providers=providers_to_try,
+            sess_options=sess_options,
+        ).with_timestamps()
+        
+        # Cache the default model
+        model_cache["parakeet-tdt-0.6b-v3"] = asr_model
+        
+        print("Default model loaded successfully with CPU optimization!")
+    except Exception as e:
+        print(f"❌ Model loading failed: {e}")
+        import traceback
+        traceback.print_exc()
+        sys.exit()
+
+    print("=" * 50)
+
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", default="small", help="Model to use",
-                        choices=["large-v3", "faster-whisper", "distil-whisper"])
+    parser.add_argument("--model", default="parakeet-tdt-0.6b-v3", help="Model to use",
+                        choices=["parakeet-tdt-0.6b-v3", "large-v3", "faster-whisper", "distil-whisper"])
     # parser.add_argument("--non_english", action='store_true',
     #                     help="Don't use the english model.")
     parser.add_argument("--energy_threshold", default=1000,
@@ -82,19 +213,23 @@ def main():
     torch_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
     print(f"Using device: {device}")
     
+    # TODO: Try this model on a GPU-enabled PC
     if args.model == "faster-whisper":
         model = "large-v3"
         # run on CPU with INT8
         audio_model = WhisperModel(model, device=device, compute_type="int8")
+    # TODO: Try this model on a GPU-enabled PC
     elif args.model == "distil-whisper":
         model = "distil-whisper/distil-large-v3"
         audio_model = AutoModelForSpeechSeq2Seq.from_pretrained(model, torch_dtype=torch_dtype, low_cpu_mem_usage=True, use_safetensors=True)
         audio_model.to(device)
         processor = AutoProcessor.from_pretrained(model)
+    elif args.model == "parakeet-tdt-0.6b-v3":
+        load_parakeet_model()
+        audio_model = get_parakeet_model()
     else:
         model = args.model
         audio_model = whisper.load_model(model)
-    
 
     record_timeout = args.record_timeout
     phrase_timeout = args.phrase_timeout
@@ -155,6 +290,9 @@ def main():
                     inputs = {k: v.to(device) for k, v in inputs.items()}
                     generated_ids = audio_model.generate(**inputs)
                     text = processor.batch_decode(generated_ids, skip_special_tokens=True)[0].strip()
+                elif args.model == "parakeet-tdt-0.6b-v3":
+                    result = audio_model.recognize(audio_np)
+                    text = result.text.strip()
                 else:
                     result = audio_model.transcribe(audio_np, fp16=torch.cuda.is_available())
                     text = result['text'].strip()

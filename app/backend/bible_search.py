@@ -18,11 +18,6 @@ except ImportError:
     RAPIDFUZZ_AVAILABLE = False
     print("Install rapidfuzz for better fuzzy search: pip install rapidfuzz")
 
-try:
-    import redis
-    REDIS_AVAILABLE = True
-except ImportError:
-    REDIS_AVAILABLE = False
 
 @dataclass
 class Verse:

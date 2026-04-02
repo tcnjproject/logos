@@ -30,4 +30,15 @@ TODO:
   - `POST /v1/speech-to-text/realtime` for transcribing realtime with audio inputs from the microphone.
     * `curl -N -X POST "http://127.0.0.1:8000/v1/speech-to-text/realtime"`
 
-
+### bible_search.py
+- High-performance scripture search engine
+- Example:
+  ```python
+    >>> from bible_search import *
+    >>> engine = ScriptureSearchEngine(use_cache=True)
+    >>> engine.load_scripture("bible/nlt.json")
+    >>> verse = engine.search_by_reference("Deuteronomy 10:9")
+    >>> verse.text
+    'That is why the Levites have no share of property or possession of land among the other Israelite tribes. The LORD himself is their special possession, as the LORD your God told them.)'
+    >>>
+  ```

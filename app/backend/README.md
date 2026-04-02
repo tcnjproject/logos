@@ -15,10 +15,9 @@ Setup the backend server in a virtual environment with the following steps:
 
 ### transcribe.py
 - `transcribe.py` implements FR 1.3 (Real-time Transcription).
-  It uses whisper large-v3 model to achieve >90% transcription accuracy.
-  Improved latency with `parakeet-tdt-0.6b-v3` model running on onnx.
+  It uses `parakeet-tdt-0.6b-v3` model with [onnxruntime](https://onnxruntime.ai/) to achieve >90% transcription accuracy and near real-time latency.
 - Run: `python .\transcribe.py`
- - Note: the script will download the `parakeet-tdt-0.6b-v3` model to your PC
+- Note: the script will download the `parakeet-tdt-0.6b-v3` model to your PC and use it offline.
 
 TODO:  
 ### api_server.py

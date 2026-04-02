@@ -42,6 +42,7 @@ async def transcribe_audio(enable_logging: bool = False):
     return {
         "language_code": "en",
         "text": "",
+        "model_id": "parakeet-tdt-0.6b-v3",
         "transcription_id": await generate_unique_id(),
     }
 

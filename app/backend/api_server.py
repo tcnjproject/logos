@@ -42,7 +42,7 @@ async def transcribe_audio(enable_logging: bool = False):
     return {
         "language_code": "en",
         "text": "",
-        "transcription_id": generate_unique_id(),
+        "transcription_id": await generate_unique_id(),
     }
 
 async def generate_unique_id() -> str:

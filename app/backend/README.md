@@ -1,7 +1,7 @@
 # Backend services
 
 ## Dependencies
-- Python 3.9 and later
+- At least Python 3.10
 
 ## Setup
 Setup the backend server in a virtual environment with the following steps:

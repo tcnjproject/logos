@@ -1,4 +1,4 @@
-# Python implementation of some PRD features
+# Backend services
 
 ## Dependencies
 - Python 3.9 and later

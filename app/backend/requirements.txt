@@ -21,5 +21,8 @@ torchcodec==0.7.0
 customtkinter==5.2.2
 pillow==12.2.0
 
+# For Bible data processing
+RapidFuzz==3.14.3
+
 # Optional GPU support (uncomment if you have NVIDIA GPU)
 # onnxruntime-gpu>=1.18.1

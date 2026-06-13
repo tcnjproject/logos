@@ -64,3 +64,20 @@ async def generate_unique_id() -> str:
 # @app.delete("/v1/speech-to-text/transcripts/{transcription_id}")
 # async def delete_transcript(transcription_id: str):
 #     return {"transcription_id": transcription_id, "status": "deleted"}
+
+# from fastapi import FastAPI, WebSocket
+# import numpy as np
+# from onnxruntime import InferenceSession
+
+# app = FastAPI()
+# model = InferenceSession("parakeet-tdt-0.6b-v3.onnx")
+
+# @app.websocket("/transcribe")
+# async def transcribe(ws: WebSocket):
+#     await ws.accept()
+#     while True:
+#         audio_bytes = await ws.receive_bytes()
+#         audio = np.frombuffer(audio_bytes, dtype=np.float32)
+#         result = run_inference(model, audio)
+#         await ws.send_text(result)
+

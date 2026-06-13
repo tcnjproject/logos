@@ -41,3 +41,52 @@ TODO:
     'That is why the Levites have no share of property or possession of land among the other Israelite tribes. The LORD himself is their special possession, as the LORD your God told them.)'
     >>>
   ```
+
+# Logos — Dear PyGui
+
+Live Bible verse display application built with Dear PyGui.
+
+## Install & run
+
+```bash
+pip install dearpygui
+python main.py
+```
+
+## File structure
+
+```
+main.py       — UI, layout, callbacks, theme
+data.py       — Enums (Translation, SearchMode, TourStep) + sample verses
+state.py      — AppState dataclass (search, queue, live verse, timer)
+```
+
+## Features
+
+- **Loading screen** — animated orange progress bar
+- **Live Transcript** — start/stop mic, scrollable transcript area, audio level bars
+- **Program Preview** — black screen showing the staged verse
+- **Bible Search** — Book search (reference) and Context search (theme) tabs
+- **Translation picker** — NIV / KJV / ESV / NLT / NASB dropdown popup
+- **Verse results** — Present or Queue each result
+- **Live Display** — Go Live toggle (green/grey), broadcasts verse to output screen
+- **Verse Queue** — add, present, and remove queued verses
+- **Recent Detections** — AI-detected verses from speech
+- **Onboarding tour** — 8-step tooltip overlay, Next / Back / Skip
+- **Update banner** — bottom-right notification
+- **Countdown timer** — REMAINING: 1:00:00, ticks down live
+- **Menu bar** — File / Edit / View / Audio / Window / Help
+
+## Wiring in Parakeet STT
+
+`state.py` has `is_transcribing` and `transcript_text`. From your WebSocket
+receiver thread, update `state.transcript_text` and call:
+
+```python
+if dpg.does_item_exist("transcript_live_text"):
+    dpg.configure_item("transcript_live_text",
+                       default_value=state.transcript_text)
+```
+
+Detected verse references should be appended to `state.recent_detections`
+and trigger `_refresh_detections_ui()`.

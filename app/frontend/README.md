@@ -17,11 +17,13 @@ AI Bible assistant
 - **Update banner** — "Install & Restart" notification
 - **Toolbar** — Settings, Broadcast, Display, Captions icons
 
-## Run
+## Dependency
+- [Rust](https://rust-lang.org/)
 
-```bash
-cargo run
-```
+## Run
+- Clone this repo: `git clone https://github.com/fem-ocean/AI-Bible-Assistant-For-Clergy.git`
+- `cd app/frontend`
+- Run: `cargo run`
 
 ## Files
 

@@ -2,6 +2,7 @@
 name = "rhema-broadcast"
 version = "0.1.1"
 edition = "2024"
+license = "MIT OR Apache-2.0"
 
 [dependencies]
 libloading = "0.8"

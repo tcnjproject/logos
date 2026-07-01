@@ -386,11 +386,11 @@ impl Drop for ActiveNdiSession {
 
 fn resolve_library_path() -> Result<PathBuf, NdiError> {
     let candidates: Vec<&str> = if cfg!(target_os = "macos") {
-        vec!["sdk/ndi/libndi.dylib"]
+        vec!["ndi/libndi.dylib"]
     } else if cfg!(target_os = "windows") {
-        vec!["sdk/ndi/Processing.NDI.Lib.x64.dll"]
+        vec!["ndi/Processing.NDI.Lib.x64.dll"]
     } else {
-        vec!["sdk/ndi/libndi.so"]
+        vec!["ndi/libndi.so"]
     };
 
     let base = Path::new(env!("CARGO_MANIFEST_DIR"));

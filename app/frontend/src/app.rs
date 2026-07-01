@@ -3,6 +3,7 @@
 use iced::{
     Task, Element, Subscription, Theme,
     time,
+    widget::pane_grid,
 };
 use iced::futures::stream::{self};
 use std::fs;
@@ -484,6 +485,26 @@ impl Logos {
                 // Placeholder for the About Logos action.
             }
 
+            Message::PaneDragged(event) => {
+                // Only swap on center drop — edge drops would create new splits
+                if let pane_grid::DragEvent::Dropped {
+                    pane,
+                    target: pane_grid::Target::Pane(other, pane_grid::Region::Center),
+                } = event
+                {
+                    self.pane_grid_state.swap(pane, other);
+                }
+            }
+
+            Message::PaneResized(pane_grid::ResizeEvent { split, ratio }) => {
+                self.pane_grid_state.resize(split, ratio);
+            }
+
+            Message::ResetLayout => {
+                self.pane_grid_state =
+                    pane_grid::State::with_configuration(default_pane_config());
+            }
+
             Message::NdiStatusTick => {
                 // No-op: processing this message is enough to trigger a
                 // repaint, which re-reads self.ndi.any_active()/error() in
@@ -617,4 +638,37 @@ fn check_for_update() -> bool {
     current.0 < latest.0
         || (current.0 == latest.0 && current.1 < latest.1)
         || (current.0 == latest.0 && current.1 == latest.1 && current.2 < latest.2)
+}
+
+pub fn default_pane_config() -> pane_grid::Configuration<PaneKind> {
+    use pane_grid::{Axis, Configuration};
+    // Two independent horizontal splits, each starting at the same ratio
+    // so Search and Recent Detections open at the same height by default,
+    // but can be resized independently.
+    Configuration::Split {
+        axis: Axis::Vertical,
+        ratio: 0.22,
+        a: Box::new(Configuration::Pane(PaneKind::LiveTranscript)),
+        b: Box::new(Configuration::Split {
+            axis: Axis::Vertical,
+            ratio: 0.74,
+            a: Box::new(Configuration::Split {
+                axis: Axis::Horizontal,
+                ratio: 0.54,  // center column: Preview+LiveDisplay above, Search below
+                a: Box::new(Configuration::Split {
+                    axis: Axis::Vertical,
+                    ratio: 0.5,
+                    a: Box::new(Configuration::Pane(PaneKind::ProgramPreview)),
+                    b: Box::new(Configuration::Pane(PaneKind::LiveDisplay)),
+                }),
+                b: Box::new(Configuration::Pane(PaneKind::Search)),
+            }),
+            b: Box::new(Configuration::Split {
+                axis: Axis::Horizontal,
+                ratio: 0.54,  // right column: Queue above, Recent Detections below
+                a: Box::new(Configuration::Pane(PaneKind::Queue)),
+                b: Box::new(Configuration::Pane(PaneKind::RecentDetections)),
+            }),
+        }),
+    }
 }

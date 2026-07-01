@@ -5,6 +5,8 @@
 pub struct Verse {
     pub reference: String,
     pub text: String,
+    // Recorded on every verse but not yet surfaced in the UI.
+    #[allow(dead_code)]
     pub translation: String,
 }
 

@@ -20,6 +20,10 @@ use crate::data::*;
 use crate::ndi_worker::NdiHandle;
 use crate::views;
 
+// Some variants are handled in `update()` but not yet emitted by any view —
+// they're wired up ahead of features still in progress (real STT streaming,
+// dismissible tour/update banner, pane-grid drag/resize).
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub enum Message {
     // Loading

@@ -21,7 +21,6 @@ const SEG_GREEN:  Color = Color { r: 0.13, g: 0.80, b: 0.25, a: 1.0 };
 const SEG_YELLOW: Color = Color { r: 0.95, g: 0.82, b: 0.10, a: 1.0 };
 const SEG_RED:    Color = Color { r: 0.95, g: 0.18, b: 0.12, a: 1.0 };
 const PEAK_COLOR: Color = Color { r: 1.00, g: 1.00, b: 1.00, a: 0.90 };
-const LABEL_COL:  Color = Color { r: 0.45, g: 0.45, b: 0.45, a: 1.0 };
 
 /// Total number of segments per channel strip.
 const SEGMENTS: usize = 14;
@@ -182,62 +181,4 @@ fn seg_color(frac: f32) -> Color {
 /// Dim a colour to ~15 % brightness for unlit segments.
 fn dim(c: Color) -> Color {
     Color { r: c.r * 0.15, g: c.g * 0.15, b: c.b * 0.15, a: 1.0 }
-}
-
-/// Draw "L" or "R" label centred at (cx, cy).
-fn draw_label(frame: &mut Frame, cx: f32, cy: f32, label: &str) {
-    frame.fill_text(canvas::Text {
-        content: label.to_string(),
-        position: Point::new(cx, cy),
-        color: LABEL_COL,
-        size: iced::Pixels(11.0),
-        font: iced::Font::DEFAULT,
-        horizontal_alignment: iced::alignment::Horizontal::Center,
-        vertical_alignment: iced::alignment::Vertical::Center,
-        line_height: iced::widget::text::LineHeight::default(),
-        shaping: iced::widget::text::Shaping::default(),
-    });
-}
-
-/// dB reference tick marks along the right edge of the meter.
-/// Draws at 0 dBFS (top), −6, −12, −18, −24 dBFS.
-fn draw_db_ticks(frame: &mut Frame, w: f32, meter_h: f32) {
-    // dB values and their approximate linear-equivalent fraction (RMS).
-    // We map dBFS → fraction using:  frac = 10^(db/20)
-    let ticks: &[(&str, f32)] = &[
-        ("0",   1.00),
-        ("-6",  0.50),
-        ("-12", 0.25),
-        ("-18", 0.125),
-        ("-24", 0.063),
-    ];
-
-    for (label, frac) in ticks {
-        let y = meter_h * (1.0 - frac);
-        // Tick line
-        let tick_path = Path::line(
-            Point::new(w - 18.0, y),
-            Point::new(w - 10.0, y),
-        );
-        frame.stroke(
-            &tick_path,
-            canvas::Stroke {
-                style: canvas::stroke::Style::Solid(LABEL_COL),
-                width: 0.8,
-                ..Default::default()
-            },
-        );
-        // Label
-        frame.fill_text(canvas::Text {
-            content: label.to_string(),
-            position: Point::new(w - 8.0, y),
-            color: LABEL_COL,
-            size: iced::Pixels(9.0),
-            font: iced::Font::DEFAULT,
-            horizontal_alignment: iced::alignment::Horizontal::Left,
-            vertical_alignment: iced::alignment::Vertical::Center,
-            line_height: iced::widget::text::LineHeight::default(),
-            shaping: iced::widget::text::Shaping::default(),
-        });
-    }
 }

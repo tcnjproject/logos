@@ -85,29 +85,6 @@ pub fn ghost_button(label: &str, msg: Message) -> Element<'static, Message> {
 }
 
 /// Icon-style toolbar button
-pub fn toolbar_button(icon: &str, msg: Message) -> Element<'static, Message> {
-    button(
-        text(icon.to_string()).size(18).color(TEXT_SECONDARY),
-    )
-    .padding([6, 10])
-    .style(|_: &Theme, status| {
-        let bg = match status {
-            button::Status::Hovered | button::Status::Pressed => BG_PANEL,
-            _ => Color::TRANSPARENT,
-        };
-        button::Style {
-            background: Some(Background::Color(bg)),
-            border: Border { radius: 6.0.into(), ..Default::default() },
-            text_color: TEXT_SECONDARY,
-            ..Default::default()
-        }
-    })
-    .on_press(msg)
-    .into()
-}
-
-
-/// Icon-style toolbar button
 pub fn toolbar_button_with_image(icon: &str, msg: Message) -> Element<'static, Message> {
     button(
             svg(svg::Handle::from_path(icon))

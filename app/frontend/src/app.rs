@@ -78,8 +78,6 @@ pub enum Message {
     // Menubar
     // ToggleHelpMenu,
     OpenAboutLogos,
-<<<<<<< Updated upstream
-=======
 
     // Pane grid
     PaneResized(pane_grid::ResizeEvent),
@@ -100,7 +98,6 @@ pub enum PaneKind {
     RecentDetections,
     ProgramPreview,
     LiveDisplay,
->>>>>>> Stashed changes
 }
 
 /// Number of bars shown in the waveform visualiser.
@@ -155,8 +152,6 @@ pub struct Logos {
 
     // Timer (remaining time in seconds)
     pub remaining_seconds: u32,
-<<<<<<< Updated upstream
-=======
 
     // Pane grid layout
     pub pane_grid_state: pane_grid::State<PaneKind>,
@@ -164,7 +159,6 @@ pub struct Logos {
     // Handle to the background NDI worker thread (owns the session, the
     // frame renderer, and all NDI FFI calls — see crate::ndi_worker).
     pub ndi: NdiHandle,
->>>>>>> Stashed changes
     // pub last_timer_tick: Instant,
 }
 
@@ -236,12 +230,8 @@ impl Logos {
                 show_update_banner: check_for_update(),
                 help_menu_open: false,
                 remaining_seconds: 3600,
-<<<<<<< Updated upstream
-                // last_timer_tick: Instant::now(),
-=======
                 pane_grid_state: pane_grid::State::with_configuration(default_pane_config()),
                 ndi,
->>>>>>> Stashed changes
             },
             Task::none(),
         )

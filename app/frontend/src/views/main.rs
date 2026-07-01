@@ -714,9 +714,63 @@ fn verse_result_row(verse: &Verse) -> Element<'_, Message> {
 fn view_live_panel(app: &Ui) -> Element<'_, Message> {
     let is_active = app.tour_step == Some(TourStep::LiveOutput);
 
+    // NDI status badge — green when broadcasting, red on error, dim when idle
+    let ndi_badge: Element<Message> = if app.ndi.any_active() {
+        container(
+            row![
+                text("●").size(9).color(GREEN_LIVE),
+                Space::with_width(3),
+                text("NDI").size(10).color(GREEN_LIVE),
+            ]
+            .align_y(Alignment::Center),
+        )
+        .padding([2, 6])
+        .style(|_: &iced::Theme| iced::widget::container::Style {
+            background: Some(Background::Color(Color {
+                r: GREEN_LIVE.r,
+                g: GREEN_LIVE.g,
+                b: GREEN_LIVE.b,
+                a: 0.12,
+            })),
+            border: Border { color: GREEN_LIVE, width: 1.0, radius: 4.0.into() },
+            ..Default::default()
+        })
+        .into()
+    } else if app.ndi.error().is_some() {
+        let red = Color::from_rgb(1.0, 0.3, 0.3);
+        container(
+            row![
+                text("●").size(9).color(red),
+                Space::with_width(3),
+                text("NDI").size(10).color(red),
+            ]
+            .align_y(Alignment::Center),
+        )
+        .padding([2, 6])
+        .style(move |_: &iced::Theme| iced::widget::container::Style {
+            background: Some(Background::Color(Color { r: 1.0, g: 0.3, b: 0.3, a: 0.10 })),
+            border: Border { color: red, width: 1.0, radius: 4.0.into() },
+            ..Default::default()
+        })
+        .into()
+    } else {
+        container(
+            row![
+                text("○").size(9).color(TEXT_MUTED),
+                Space::with_width(3),
+                text("NDI").size(10).color(TEXT_MUTED),
+            ]
+            .align_y(Alignment::Center),
+        )
+        .padding([2, 6])
+        .into()
+    };
+
     let header = row![
         text("Live display").size(13).color(TEXT_SECONDARY),
         Space::with_width(Length::Fill),
+        ndi_badge,
+        Space::with_width(8),
         text("Go live").size(13).color(TEXT_SECONDARY),
         Space::with_width(8),
         toggle_switch(app.go_live, Message::GoLiveToggled),
@@ -735,8 +789,20 @@ fn view_live_panel(app: &Ui) -> Element<'_, Message> {
             ..Default::default()
         });
 
+    // Show the NDI error string inline so failures are immediately visible
+    let ndi_error_label: Element<Message> = if let Some(err) = app.ndi.error() {
+        container(
+            text(err).size(10).color(Color::from_rgb(1.0, 0.4, 0.4)),
+        )
+        .padding([4, 0])
+        .into()
+    } else {
+        Space::with_height(0).into()
+    };
+
     let inner = column![
         header,
+        ndi_error_label,
         Space::with_height(8),
         live_screen,
         Space::with_height(8),

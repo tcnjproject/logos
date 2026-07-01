@@ -10,8 +10,13 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
+use rhema_broadcast::ndi::{
+    NdiStartRequest, NdiResolution, NdiFrameRate, NdiAlphaMode,
+};
+
 use crate::audio::{AudioCapture, AudioShared};
 use crate::data::*;
+use crate::ndi_worker::NdiHandle;
 use crate::views;
 
 #[derive(Debug, Clone)]
@@ -73,6 +78,29 @@ pub enum Message {
     // Menubar
     // ToggleHelpMenu,
     OpenAboutLogos,
+<<<<<<< Updated upstream
+=======
+
+    // Pane grid
+    PaneResized(pane_grid::ResizeEvent),
+    PaneDragged(pane_grid::DragEvent),
+    ResetLayout,
+
+    // Cheap poll of the NDI worker's status — just forces a repaint so the
+    // badge/error label pick up state changes that happen asynchronously on
+    // the worker thread (session start/stop, errors).
+    NdiStatusTick,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum PaneKind {
+    LiveTranscript,
+    Search,
+    Queue,
+    RecentDetections,
+    ProgramPreview,
+    LiveDisplay,
+>>>>>>> Stashed changes
 }
 
 /// Number of bars shown in the waveform visualiser.
@@ -127,6 +155,16 @@ pub struct Logos {
 
     // Timer (remaining time in seconds)
     pub remaining_seconds: u32,
+<<<<<<< Updated upstream
+=======
+
+    // Pane grid layout
+    pub pane_grid_state: pane_grid::State<PaneKind>,
+
+    // Handle to the background NDI worker thread (owns the session, the
+    // frame renderer, and all NDI FFI calls — see crate::ndi_worker).
+    pub ndi: NdiHandle,
+>>>>>>> Stashed changes
     // pub last_timer_tick: Instant,
 }
 
@@ -158,13 +196,23 @@ impl Logos {
             mark_tour_seen(&marker_path);
         }
 
+        // go_live starts as true — kick off the NDI session on the worker
+        // thread immediately at launch. spawn()/start() return instantly;
+        // the library load and NDI init happen off the GUI thread.
+        let ndi = NdiHandle::spawn();
+        ndi.start(NdiStartRequest {
+            source_name: "Logos Bible Display".into(),
+            resolution: NdiResolution::R1080p,
+            frame_rate: NdiFrameRate::Fps30,
+            alpha_mode: NdiAlphaMode::NoneOpaque,
+        });
+
         (
             Self {
                 loading: LoadingState::Loading(0.0),
                 loading_start: Instant::now(),
                 is_transcribing: false,
                 transcript_text: String::new(),
-                // audio_level: 0.0,
                 audio_capture: None,
                 audio_shared: None,
                 waveform: vec![0.0; DISPLAY_BARS],
@@ -188,7 +236,12 @@ impl Logos {
                 show_update_banner: check_for_update(),
                 help_menu_open: false,
                 remaining_seconds: 3600,
+<<<<<<< Updated upstream
                 // last_timer_tick: Instant::now(),
+=======
+                pane_grid_state: pane_grid::State::with_configuration(default_pane_config()),
+                ndi,
+>>>>>>> Stashed changes
             },
             Task::none(),
         )
@@ -198,50 +251,56 @@ impl Logos {
         Theme::Dark
     }
 
-    // pub fn subscription(&self) -> Subscription<Message> {
-    //     match &self.loading {
-    //         LoadingState::Loading(_) => {
-    //             time::every(Duration::from_millis(50)).map(|_| Message::Tick)
-    //         }
-    //         LoadingState::Ready => {
-    //             time::every(Duration::from_secs(1)).map(|_| Message::TimerTick)
-    //         }
-    //     }
-    // }
-     pub fn subscription(&self) -> Subscription<Message> {
+    /// Push the current live verse text to the NDI worker thread so its
+    /// next rendered frame reflects it. Cheap: just clones two short strings
+    /// onto a channel, no rendering happens here.
+    fn sync_ndi_verse(&self) {
+        let (reference, text) = self
+            .live_verse
+            .as_ref()
+            .map(|v| (v.reference.clone(), v.text.clone()))
+            .unwrap_or_default();
+        self.ndi.set_verse(reference, text);
+    }
+
+    pub fn subscription(&self) -> Subscription<Message> {
         match &self.loading {
-            // Loading animation — 50ms ticks
             LoadingState::Loading(_) => {
                 time::every(Duration::from_millis(50)).map(|_| Message::Tick)
             }
- 
+
             LoadingState::Ready => {
                 let mut subs = vec![
-                    // Countdown timer — 1s ticks
                     time::every(Duration::from_secs(1)).map(|_| Message::TimerTick),
                 ];
- 
-                 // Audio polling subscription — active only while recording
+
+                // Audio polling — active only while mic is open
                 if let Some(shared) = &self.audio_shared {
                     let shared = shared.clone();
+                    subs.push(Subscription::run_with_id(
+                        "audio_poll",
+                        stream::unfold(shared, |shared| async move {
+                            tokio::time::sleep(Duration::from_millis(33)).await;
+                            let (waveform, rms, peak) = {
+                                let st = shared.lock().unwrap();
+                                let waveform = downsample_waveform(&st.samples, DISPLAY_BARS);
+                                (waveform, st.rms, st.peak)
+                            };
+                            Some((Message::AudioFrame { waveform, rms, peak }, shared))
+                        }),
+                    ));
+                }
+
+                // Frame rendering/sending happens on the NDI worker thread
+                // (see crate::ndi_worker) — this just polls its status at a
+                // low rate so the badge/error label stay current after a
+                // Go Live toggle.
+                if self.go_live {
                     subs.push(
-                        Subscription::run_with_id(
-                            "audio_poll",
-                            stream::unfold(shared, |shared| async move {
-                                tokio::time::sleep(Duration::from_millis(33)).await;
-                                let (waveform, rms, peak) = {
-                                    let st = shared.lock().unwrap();
-                                    let waveform = downsample_waveform(&st.samples, DISPLAY_BARS);
-                                    (waveform, st.rms, st.peak)
-                                };
-                                Some((
-                                    Message::AudioFrame { waveform, rms, peak },
-                                    shared,
-                                ))
-                            }),
-                        ),
+                        time::every(Duration::from_millis(200)).map(|_| Message::NdiStatusTick),
                     );
                 }
+
                 Subscription::batch(subs)
             }
         }
@@ -355,6 +414,7 @@ impl Logos {
                 self.preview_verse = Some(verse.clone());
                 if self.go_live {
                     self.live_verse = Some(verse);
+                    self.sync_ndi_verse();
                 }
             }
 
@@ -366,14 +426,26 @@ impl Logos {
                 self.go_live = !self.go_live;
                 if self.go_live {
                     self.live_verse = self.preview_verse.clone();
+                    self.sync_ndi_verse();
+                    // Start NDI session on the worker thread — gracefully
+                    // degrades (via ndi.error()) if the library isn't found.
+                    self.ndi.start(NdiStartRequest {
+                        source_name: "Logos Bible Display".into(),
+                        resolution: NdiResolution::R1080p,
+                        frame_rate: NdiFrameRate::Fps30,
+                        alpha_mode: NdiAlphaMode::NoneOpaque,
+                    });
                 } else {
                     self.live_verse = None;
+                    self.sync_ndi_verse();
+                    self.ndi.stop();
                 }
             }
 
             Message::ClearLive => {
                 self.live_verse = None;
                 self.preview_verse = None;
+                self.sync_ndi_verse();
             }
 
             // Tour
@@ -420,6 +492,12 @@ impl Logos {
             Message::OpenAboutLogos => {
                 self.help_menu_open = false;
                 // Placeholder for the About Logos action.
+            }
+
+            Message::NdiStatusTick => {
+                // No-op: processing this message is enough to trigger a
+                // repaint, which re-reads self.ndi.any_active()/error() in
+                // view() with whatever the worker thread has published.
             }
         }
 

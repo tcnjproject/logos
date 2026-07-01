@@ -1,6 +1,8 @@
 // TCNJ AI/ML Group
 mod app;
 mod audio;
+mod broadcast;
+mod ndi_worker;
 mod theme;
 // mod tiles;
 mod views;

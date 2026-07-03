@@ -1,0 +1,33 @@
+[package]
+name = "parakeet-transcribe"
+version = "0.1.0"
+edition = "2021"
+authors = ["The Covenant Nation Jesutedo (TCNJ) AI/ML Group"]
+license = "MIT OR Apache-2.0"
+description = "Real-time microphone speech-to-text using the Parakeet TDT ONNX model"
+
+[lib]
+name = "parakeet_transcribe"
+path = "src/lib.rs"
+
+[[bin]]
+name = "transcribe"
+path = "src/main.rs"
+
+[features]
+default = []
+# Enable to try CUDA before falling back to CPU (requires a CUDA-capable ONNX Runtime build).
+cuda = ["ort/cuda"]
+# Enable to try TensorRT before CUDA/CPU (requires a TensorRT-capable ONNX Runtime build).
+tensorrt = ["ort/tensorrt"]
+
+[dependencies]
+ort = "2.0.0-rc.12"
+cpal = "0.15"
+realfft = "3"
+regex = "1"
+thiserror = "2"
+clap = { version = "4", features = ["derive"] }
+ctrlc = "3"
+
+[dev-dependencies]

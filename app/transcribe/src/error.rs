@@ -35,6 +35,9 @@ pub enum TranscribeError {
 
     #[error("audio worker thread terminated unexpectedly")]
     WorkerDied,
+
+    #[error("failed to download model from Hugging Face: {0}")]
+    Download(#[from] hf_hub::api::sync::ApiError),
 }
 
 // `SessionBuilder` methods return `ort::Error<SessionBuilder>` (parameterized by a "recover" type

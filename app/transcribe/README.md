@@ -14,6 +14,7 @@ the default microphone and prints a live, line-by-line transcript.
 | [`src/preprocessor.rs`](src/preprocessor.rs) | Log-mel filterbank feature extraction (STFT + mel filterbank + per-utterance normalization), matching NeMo's `AudioToMelSpectrogramPreprocessor`. |
 | [`assets/nemo128_fbanks.bin`](assets/nemo128_fbanks.bin) | The mel filterbank matrix itself (257 FFT bins x 128 mel channels, raw little-endian `f32`), extracted verbatim from `onnx_asr`'s bundled `nemo128` filterbank and embedded via `include_bytes!` so the STFT-to-mel projection matches the Python reference bit-for-bit rather than being recomputed from a formula. |
 | [`src/model.rs`](src/model.rs) | Loads the Conformer encoder and LSTM decoder/joiner ONNX sessions and runs greedy TDT (token-and-duration transducer) decoding. |
+| [`src/hub.rs`](src/hub.rs) | Downloads model files directly from the Hugging Face Hub (or reuses the local Hugging Face cache) via [`hf-hub`](https://docs.rs/hf-hub). |
 | [`src/vocab.rs`](src/vocab.rs) | Vocabulary loading and SentencePiece-style detokenization. |
 | [`src/mic.rs`](src/mic.rs) | Microphone capture via [`cpal`](https://docs.rs/cpal), with downmixing to mono and resampling to 16kHz. |
 | [`src/streaming.rs`](src/streaming.rs) | Turns a raw audio stream into a running transcript: buffers the current phrase and starts a new line after a period of silence. |
@@ -32,14 +33,16 @@ The crate expects a directory containing:
 - `vocab.txt`
 - `config.json`
 
-By default it points at the Hugging Face snapshot already cached by the Python prototype:
+By default (no `--model-dir`), these are downloaded directly from the Hugging Face Hub repo
+[`istupakov/parakeet-tdt-0.6b-v3-onnx`](https://huggingface.co/istupakov/parakeet-tdt-0.6b-v3-onnx)
+(~650MB, mostly the encoder weights) via the [`hf-hub`](https://docs.rs/hf-hub) crate, and cached
+under the standard Hugging Face cache directory (`$HF_HOME/hub`, or `~/.cache/huggingface/hub` if
+`HF_HOME` isn't set — the same layout and location Python's `huggingface_hub` uses, so a model
+already cached by other tooling is reused rather than re-downloaded). Subsequent runs reuse the
+cached files.
 
-```
-app/backend/models/models--istupakov--parakeet-tdt-0.6b-v3-onnx/snapshots/<hash>
-```
-
-If that snapshot hash ever changes (e.g. after re-running the Python model loader) or you keep the
-model somewhere else, override it with `--model-dir`.
+Use `--model-id <ORG/NAME>` to download a different Hugging Face repo, or `--model-dir <DIR>` to
+point at model files you already have locally (skipping the download entirely).
 
 ## Usage
 
@@ -47,10 +50,13 @@ model somewhere else, override it with `--model-dir`.
 # List available microphone input devices.
 cargo run --release --bin transcribe -- --list-microphones
 
-# Transcribe from the default microphone using the default (cached) model directory.
+# Transcribe from the default microphone, downloading the model from Hugging Face on first run.
 cargo run --release --bin transcribe
 
-# Point at a different model directory and tune phrase segmentation.
+# Download a different Hugging Face model repo.
+cargo run --release --bin transcribe -- --model-id istupakov/parakeet-tdt-0.6b-v3-onnx
+
+# Point at a model directory you already have locally and tune phrase segmentation.
 cargo run --release --bin transcribe -- \
   --model-dir /path/to/parakeet-tdt-0.6b-v3-onnx \
   --energy-threshold 0.02 \
@@ -64,7 +70,8 @@ Press Ctrl+C to stop; the final full transcript is printed before exit.
 
 | Flag | Default | Meaning |
 | --- | --- | --- |
-| `--model-dir <DIR>` | cached snapshot under `app/backend/models` | Directory with the ONNX model files and vocab. |
+| `--model-dir <DIR>` | *(none — downloads instead)* | Directory with the ONNX model files and vocab. If omitted, the model is downloaded per `--model-id`. |
+| `--model-id <ORG/NAME>` | `istupakov/parakeet-tdt-0.6b-v3-onnx` | Hugging Face model repo to download from when `--model-dir` isn't given. |
 | `--energy-threshold <F>` | `0.02` | RMS amplitude (0.0-1.0) a captured window must exceed to be treated as speech rather than silence. |
 | `--record-timeout <SECS>` | `2` | How often captured audio is handed to the model — controls how "live" updates feel. |
 | `--phrase-timeout <SECS>` | `3` | Seconds of silence before the next utterance starts a new transcript line. |
@@ -73,11 +80,13 @@ Press Ctrl+C to stop; the final full transcript is printed before exit.
 ## Using the library directly
 
 ```rust
-use parakeet_transcribe::{mic, streaming::{self, StreamConfig}, Transcriber};
+use parakeet_transcribe::{hub, mic, streaming::{self, StreamConfig}, Transcriber};
 use std::sync::atomic::AtomicBool;
 use std::time::Duration;
 
-let mut transcriber = Transcriber::from_model_dir("path/to/model_dir")?;
+// Downloads (or reuses the cached copy of) the model from Hugging Face.
+let model_dir = hub::download_model(hub::DEFAULT_MODEL_ID)?;
+let mut transcriber = Transcriber::from_model_dir(model_dir)?;
 let (_mic_stream, rx) = mic::start(Duration::from_secs(2))?;
 let should_stop = AtomicBool::new(false);
 

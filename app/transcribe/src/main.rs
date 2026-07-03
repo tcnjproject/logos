@@ -10,22 +10,21 @@ use std::time::Duration;
 
 use clap::Parser;
 
-use parakeet_transcribe::{mic, streaming, Transcriber};
-
-/// Default model directory: the `istupakov/parakeet-tdt-0.6b-v3-onnx` snapshot already cached by
-/// the Python prototype (`app/backend/transcribe.py`) under its Hugging Face hub cache, resolved
-/// relative to this crate's directory (`app/transcribe`). Override with `--model-dir` if your
-/// snapshot hash differs or the model lives elsewhere.
-const DEFAULT_MODEL_DIR: &str =
-    "models/models--istupakov--parakeet-tdt-0.6b-v3-onnx/snapshots/8f23f0c03c8761650bdb5b40aaf3e40d2c15f1ce";
+use parakeet_transcribe::{hub, mic, streaming, Transcriber};
 
 /// Real-time microphone transcription using the Parakeet TDT 0.6B ONNX model.
 #[derive(Parser)]
 struct Args {
     /// Directory containing `encoder-model.int8.onnx`, `decoder_joint-model.int8.onnx`,
-    /// `vocab.txt`, and `config.json`.
-    #[arg(long, value_name = "DIR", default_value = DEFAULT_MODEL_DIR)]
-    model_dir: PathBuf,
+    /// `vocab.txt`, and `config.json`. If omitted, these files are downloaded directly from the
+    /// Hugging Face Hub repo named by `--model-id` (or reused from the local Hugging Face cache
+    /// if already present there).
+    #[arg(long, value_name = "DIR")]
+    model_dir: Option<PathBuf>,
+
+    /// Hugging Face model repo to download from when `--model-dir` isn't given.
+    #[arg(long, default_value = hub::DEFAULT_MODEL_ID)]
+    model_id: String,
 
     /// RMS energy level (0.0-1.0) a captured window must exceed to be treated as speech rather
     /// than silence.
@@ -54,12 +53,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         return Ok(());
     }
-    eprintln!("Loading Parakeet TDT model from {}...", args.model_dir.display());
-    let mut transcriber = Transcriber::from_model_dir(&args.model_dir).map_err(|e| {
+    let model_dir = match args.model_dir {
+        Some(dir) => dir,
+        None => {
+            eprintln!(
+                "Fetching Parakeet TDT model '{}' from Hugging Face (cached locally after the \
+                 first run)...",
+                args.model_id
+            );
+            hub::download_model(&args.model_id)?
+        }
+    };
+
+    eprintln!("Loading Parakeet TDT model from {}...", model_dir.display());
+    let mut transcriber = Transcriber::from_model_dir(&model_dir).map_err(|e| {
         format!(
             "{e}\n\nhint: pass --model-dir <DIR> pointing at a directory with \
-             encoder-model.int8.onnx, decoder_joint-model.int8.onnx, and vocab.txt \
-             (default: {DEFAULT_MODEL_DIR})"
+             encoder-model.int8.onnx, decoder_joint-model.int8.onnx, and vocab.txt, or \
+             --model-id <ORG/NAME> to download a different Hugging Face repo"
         )
     })?;
     eprintln!("Model loaded.\n");

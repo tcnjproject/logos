@@ -17,6 +17,7 @@ the default microphone and prints a live, line-by-line transcript.
 | [`src/hub.rs`](src/hub.rs) | Downloads model files directly from the Hugging Face Hub (or reuses the local Hugging Face cache) via [`hf-hub`](https://docs.rs/hf-hub). |
 | [`src/vocab.rs`](src/vocab.rs) | Vocabulary loading and SentencePiece-style detokenization. |
 | [`src/mic.rs`](src/mic.rs) | Microphone capture via [`cpal`](https://docs.rs/cpal), with downmixing to mono and resampling to 16kHz. |
+| [`src/resample.rs`](src/resample.rs) | Streaming, anti-aliased sample-rate conversion: a windowed-sinc lowpass filter runs before decimation so downsampling (e.g. a device's native 48kHz down to 16kHz) doesn't fold high frequencies back into the audible range and corrupt consonants. |
 | [`src/streaming.rs`](src/streaming.rs) | Turns a raw audio stream into a running transcript: buffers the current phrase and starts a new line after a period of silence. |
 | [`src/main.rs`](src/main.rs) | CLI entry point wiring the above together. |
 
@@ -113,7 +114,7 @@ Without either feature, inference runs on CPU only.
 ## Tests and validation
 
 ```sh
-cargo test              # unit tests (vocab detokenization)
+cargo test              # unit tests (vocab detokenization, resampler anti-aliasing)
 cargo clippy --all-targets
 ```
 

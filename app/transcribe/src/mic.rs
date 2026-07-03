@@ -1,8 +1,9 @@
 //! Microphone capture via [`cpal`](https://docs.rs/cpal), the standard cross-platform audio I/O
 //! crate for Rust (already used elsewhere in this workspace for waveform capture). Captured audio
-//! is downmixed to mono, resampled to the model's expected 16kHz, and delivered over a channel in
-//! fixed-duration windows — segmentation into "phrases" (deciding when a pause should start a new
-//! transcript line) happens one layer up, in [`crate::streaming`].
+//! is downmixed to mono, resampled to the model's expected 16kHz (see [`crate::resample`] for the
+//! anti-aliased resampler this uses), and delivered over a channel in fixed-duration windows —
+//! segmentation into "phrases" (deciding when a pause should start a new transcript line) happens
+//! one layer up, in [`crate::streaming`].
 
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
@@ -11,6 +12,7 @@ use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{SampleFormat, SupportedStreamConfig};
 
 use crate::error::{Result, TranscribeError};
+use crate::resample::Resampler;
 
 /// Sample rate the acoustic model was trained on; microphone audio is resampled to this rate.
 pub const TARGET_SAMPLE_RATE: u32 = 16_000;
@@ -61,12 +63,12 @@ fn start_on_device(
 
     let (tx, rx) = mpsc::channel();
     let err_fn = |e| eprintln!("audio stream error: {e}");
-    let mut accumulator: ChunkAccumulator = ChunkAccumulator::new(chunk_samples);
+    let mut accumulator = ChunkAccumulator::new(chunk_samples, Resampler::new(sample_rate, TARGET_SAMPLE_RATE));
 
     let stream = match sample_format {
         SampleFormat::F32 => device.build_input_stream(
             &config.into(),
-            move |data: &[f32], _| accumulator.push(data, channels, sample_rate, &tx),
+            move |data: &[f32], _| accumulator.push(data, channels, &tx),
             err_fn,
             None,
         ),
@@ -74,7 +76,7 @@ fn start_on_device(
             &config.into(),
             move |data: &[i16], _| {
                 let floats: Vec<f32> = data.iter().map(|&s| s as f32 / i16::MAX as f32).collect();
-                accumulator.push(&floats, channels, sample_rate, &tx)
+                accumulator.push(&floats, channels, &tx)
             },
             err_fn,
             None,
@@ -86,7 +88,7 @@ fn start_on_device(
                     .iter()
                     .map(|&s| (s as f32 / u16::MAX as f32) * 2.0 - 1.0)
                     .collect();
-                accumulator.push(&floats, channels, sample_rate, &tx)
+                accumulator.push(&floats, channels, &tx)
             },
             err_fn,
             None,
@@ -104,22 +106,24 @@ fn start_on_device(
 struct ChunkAccumulator {
     buffer: Vec<f32>,
     chunk_samples: usize,
+    resampler: Resampler,
 }
 
 impl ChunkAccumulator {
-    fn new(chunk_samples: usize) -> Self {
+    fn new(chunk_samples: usize, resampler: Resampler) -> Self {
         Self {
             buffer: Vec::with_capacity(chunk_samples),
             chunk_samples,
+            resampler,
         }
     }
 
-    fn push(&mut self, data: &[f32], channels: usize, sample_rate: u32, tx: &mpsc::Sender<AudioChunk>) {
+    fn push(&mut self, data: &[f32], channels: usize, tx: &mpsc::Sender<AudioChunk>) {
         if data.is_empty() {
             return;
         }
         let mono = downmix(data, channels);
-        let resampled = resample_linear(&mono, sample_rate, TARGET_SAMPLE_RATE);
+        let resampled = self.resampler.process(&mono);
         self.buffer.extend_from_slice(&resampled);
 
         if self.buffer.len() >= self.chunk_samples {
@@ -139,27 +143,6 @@ fn downmix(data: &[f32], channels: usize) -> Vec<f32> {
     data.chunks_exact(channels)
         .map(|frame| frame.iter().sum::<f32>() / channels as f32)
         .collect()
-}
-
-/// Simple linear-interpolation resampler. Good enough for speech intelligibility without pulling
-/// in a full-blown resampling crate; swap for a windowed-sinc resampler if higher fidelity is
-/// needed.
-fn resample_linear(samples: &[f32], from_rate: u32, to_rate: u32) -> Vec<f32> {
-    if from_rate == to_rate || samples.len() < 2 {
-        return samples.to_vec();
-    }
-    let ratio = from_rate as f64 / to_rate as f64;
-    let out_len = ((samples.len() as f64) / ratio).floor() as usize;
-    let mut out = Vec::with_capacity(out_len);
-    for i in 0..out_len {
-        let src_pos = i as f64 * ratio;
-        let idx = src_pos.floor() as usize;
-        let frac = (src_pos - idx as f64) as f32;
-        let a = samples[idx];
-        let b = samples.get(idx + 1).copied().unwrap_or(a);
-        out.push(a + (b - a) * frac);
-    }
-    out
 }
 
 /// Prefer a config offering [`TARGET_SAMPLE_RATE`] directly (avoids resampling); otherwise fall

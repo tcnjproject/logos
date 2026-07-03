@@ -19,6 +19,7 @@ pub mod hub;
 pub mod mic;
 pub mod model;
 pub mod preprocessor;
+pub mod resample;
 pub mod streaming;
 pub mod vocab;
 

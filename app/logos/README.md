@@ -64,7 +64,7 @@ app/logos/
   Cargo.toml           # package "logos" — iced, tokio, cpal, fontdue, rhema-broadcast
   bible.json           # local scripture data (gitignored; not yet read by the app)
   assets/              # icons (mic, start/stop, settings, help) and logo images
-  crates/
+  3pp/                 # Third party crates
     broadcast/         # `rhema-broadcast` crate — NDI FFI bindings + frame types
       src/lib.rs
       src/ndi.rs       # loads the NDI runtime via libloading, start/stop/send_frame

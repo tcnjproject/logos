@@ -1,0 +1,6 @@
+target
+bible.json
+
+# Proprietary NDI SDK runtime — governed by NewTek/Vizrt's own license,
+# never commit it alongside this project's MIT/Apache-2.0 grant. See LICENSE.
+crates/broadcast/ndi

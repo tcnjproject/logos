@@ -1,0 +1,30 @@
+# Licensing
+
+This project (the `logos` application and the `rhema-broadcast` crate) is
+dual-licensed under either of:
+
+- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or
+  http://www.apache.org/licenses/LICENSE-2.0)
+- MIT license ([LICENSE-MIT](LICENSE-MIT) or
+  http://opensource.org/licenses/MIT)
+
+at your option.
+
+Unless you explicitly state otherwise, any contribution intentionally
+submitted for inclusion in this work by you, as defined in the Apache-2.0
+license, shall be dual licensed as above, without any additional terms or
+conditions.
+
+## Third-party: NDI SDK
+
+`crates/broadcast` loads the NDI runtime (`Processing.NDI.Lib.x64.dll` /
+`libndi.dylib` / `libndi.so`) at runtime via `libloading` — no NDI binaries,
+headers, or import libraries are vendored in this repository, and none of
+this project's license grants above extend to them.
+
+The NDI SDK and its redistributable runtime are separate proprietary
+software owned by Vizrt NDI AB (NewTek), governed by NewTek's NDI SDK
+License Agreement (see https://ndi.video/for-developers/ndi-sdk/). Anyone
+building or distributing this app is responsible for obtaining the NDI SDK
+themselves and complying with its license terms, including any trademark
+attribution requirements for "NDI®".

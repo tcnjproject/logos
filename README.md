@@ -1,8 +1,7 @@
 # Logos
 
-Desktop control-room app for presenting Bible verses during a live service.
-Built with [Rust](https://rust-lang.org/) and [iced](https://github.com/iced-rs/iced), with an
-NDI output pipeline (`rhema-broadcast`) for sending the live verse to broadcast/streaming software.
+Desktop control-room app for presenting Bible verses and lyrics during a live service.
+
 
 ## Current state
 
@@ -18,34 +17,25 @@ NDI output pipeline (`rhema-broadcast`) for sending the live verse to broadcast/
 
 ## Features
 
-- Loading screen with animated progress bar
 - Live Transcript panel — mic toggle, real-time waveform/VU meter, scrollable transcript
 - Bible Search — Book search (reference) and Context search (theme/quote) tabs
 - Translation picker — NIV, KJV, ESV, NLT, NASB
-- Verse results — Present or Queue each result
 - Program Preview — staged verse shown before going live
 - Live Display — Go Live toggle, broadcasts the staged verse over NDI
 - Verse Queue — add, present, remove queued verses
 - Recent Detections panel (UI ready, not yet populated by real detections)
 - 8-step onboarding tour overlay (Next/Back/Skip)
-- Update banner ("Install & Restart")
 - Resizable/draggable 4-pane layout (`iced::widget::pane_grid`)
 
 ## Prerequisites
 
 - [Rust](https://rust-lang.org/) (edition 2024 — install via [rustup](https://rustup.rs/))
-- A working audio input device for the Live Transcript panel
-- For NDI output: the runtime library is bundled per-platform under
-  `crates/broadcast/ndi/` (`Processing.NDI.Lib.x64.dll` on Windows, `libndi.dylib` on macOS,
-  `libndi.so` on Linux) and is loaded automatically — no separate NDI SDK install needed to run
-  this app. If the library can't be loaded, the app degrades gracefully (NDI badge turns red and
-  shows the error) rather than crashing.
 
 ## Build & run
 
 ```sh
-git clone https://github.com/fem-ocean/AI-Bible-Assistant-For-Clergy.git
-cd app/logos
+git clone https://github.com/tcnjproject/logos.git
+cd logos
 cargo run              # debug build
 cargo run --release    # optimized build
 ```
@@ -62,10 +52,11 @@ cargo build --release
 ```
 app/logos/
   Cargo.toml           # package "logos" — iced, tokio, cpal, fontdue, rhema-broadcast
-  bible.json           # local scripture data (gitignored; not yet read by the app)
   assets/              # icons (mic, start/stop, settings, help) and logo images
   crates/                 # Third party crates
-    broadcast/         # `rhema-broadcast` crate — NDI FFI bindings + frame types
+    bible              # [`rhema-bible`](https://github.com/openbezal/rhema/tree/main/src-tauri/crates/bible)
+    db                 # Ported from https://github.com/openbezal/rhema/blob/main/data/build-bible-db.ts
+    broadcast/         # [`rhema-broadcast`](https://github.com/openbezal/rhema/tree/main/src-tauri/crates/broadcast)
       src/lib.rs
       src/ndi.rs       # loads the NDI runtime via libloading, start/stop/send_frame
       ndi/             # bundled NDI runtime libraries (dll/dylib/so)
@@ -89,15 +80,14 @@ app/logos/
 
 ## Roadmap
 
-Wiring up real speech-to-text and verse detection (a Python/`onnxruntime` STT service already
-exists as a prototype under `app/backend/`):
+Wiring up real speech-to-text and verse detection:
 
-- Add a WebSocket/HTTP client (e.g. `tokio-tungstenite`) to `app.rs`
-- Add a `Subscription` that connects to the STT backend and maps incoming transcripts to
+- Use [`rhema-stt](https://github.com/openbezal/rhema/tree/main/src-tauri/crates/stt)
+- Add a `Subscription` that connects to the STT and maps incoming transcripts to
   `Message::TranscriptUpdated`
 - Parse detected verse references from the transcript and push them via
   `Message::AddToDetections`
-- Load verses from `bible.json` instead of the hardcoded sample set in `sample_search_results`
+- Load verses from `rhema-bible`
 
 ## License
 

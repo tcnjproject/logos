@@ -2,7 +2,8 @@ target
 bible.json
 crates/db/target
 crates/db/rhema.db
-crates/db/sources
+crates/db/sources/*
+crates/db/cross-refs/*
 crates/db/.claude
 
 # Proprietary NDI SDK runtime — governed by NewTek/Vizrt's own license,

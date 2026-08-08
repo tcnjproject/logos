@@ -54,9 +54,9 @@ app/logos/
   Cargo.toml           # package "logos" — iced, tokio, cpal, fontdue, rhema-broadcast
   assets/              # icons (mic, start/stop, settings, help) and logo images
   crates/                 # Third party crates
-    bible              # [`rhema-bible`](https://github.com/openbezal/rhema/tree/main/src-tauri/crates/bible)
+    bible              # [rhema-bible](https://github.com/openbezal/rhema/tree/main/src-tauri/crates/bible)
     db                 # Ported from https://github.com/openbezal/rhema/blob/main/data/build-bible-db.ts
-    broadcast/         # [`rhema-broadcast`](https://github.com/openbezal/rhema/tree/main/src-tauri/crates/broadcast)
+    broadcast/         # [rhema-broadcast](https://github.com/openbezal/rhema/tree/main/src-tauri/crates/broadcast)
       src/lib.rs
       src/ndi.rs       # loads the NDI runtime via libloading, start/stop/send_frame
       ndi/             # bundled NDI runtime libraries (dll/dylib/so)
@@ -82,7 +82,7 @@ app/logos/
 
 Wiring up real speech-to-text and verse detection:
 
-- Use [`rhema-stt](https://github.com/openbezal/rhema/tree/main/src-tauri/crates/stt)
+- Use [`rhema-stt`](https://github.com/openbezal/rhema/tree/main/src-tauri/crates/stt)
 - Add a `Subscription` that connects to the STT and maps incoming transcripts to
   `Message::TranscriptUpdated`
 - Parse detected verse references from the transcript and push them via

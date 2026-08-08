@@ -1,6 +1,6 @@
 # Logos
 
-An AI-powered desktop application for presenting Bible verses and lyrics during a live service.
+AI desktop application for presenting Bible verses and lyrics during a live service.
 
 
 ## Current state

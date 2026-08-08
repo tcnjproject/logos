@@ -9,3 +9,7 @@ crates/db/.claude
 # Proprietary NDI SDK runtime — governed by NewTek/Vizrt's own license,
 # never commit it alongside this project's MIT/Apache-2.0 grant. See LICENSE.
 
+branch_structure.json
+temp_auto_push.bat
+temp_interactive_push.bat
+.gitignore

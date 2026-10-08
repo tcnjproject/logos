@@ -19,3 +19,5 @@ data/rhema.db*
 data/sources/*
 data/cross-refs/*
 models/whisper/*.bin
+config.bat
+node_modules

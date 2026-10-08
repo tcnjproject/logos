@@ -5,6 +5,24 @@ An AI-powered desktop application for automatically detecting and presenting Bib
 
 ## Current state
 
+The speech-to-text and verse-detection milestone is implemented. See
+[README-MILESTONE.md](README-MILESTONE.md) for setup, architecture, validation, and limits.
+
+- **Live transcript** — one microphone stream supplies the waveform/VU meter and local
+  `rhema-stt` Whisper inference. Final speech segments update the transcript through an
+  Iced subscription. Transcription runs offline without an API key.
+- **Verse detection** — numeric and spoken references are parsed from recent transcript
+  context, loaded through `rhema-bible`, and added to Recent Detections. Use the existing
+  Present/Queue controls to select what goes on air.
+- **Bible search** — reference, chapter, range, and Context keyword searches use SQLite.
+  The translation picker loads the actual selected translation and reports unavailable
+  translations. KJV is the initial selection.
+- **Queue / Preview / Live / NDI**, onboarding, and layout retain their existing behavior.
+- **Status messages** show microphone/model/provider failures and Bible lookup errors.
+
+<!-- Previous current-state documentation retained for reference:
+## Current state
+
 - **Live transcript panel** — captures real microphone audio (`cpal`) and drives the waveform/VU
   meter. There is no speech-to-text or automatic verse detection wired in yet, so "Recent
   Detections" stays empty (see [Roadmap](#roadmap)).
@@ -15,6 +33,8 @@ An AI-powered desktop application for automatically detecting and presenting Bib
 - **Onboarding tour and update banner** — implemented with local/mock state (no real update
   server check).
 
+-->
+
 ## Features
 
 - Live Transcript panel — mic toggle, real-time waveform/VU meter, scrollable transcript
@@ -23,7 +43,8 @@ An AI-powered desktop application for automatically detecting and presenting Bib
 - Program Preview — staged verse shown before going live
 - Live Display — Go Live toggle, broadcasts the staged verse over NDI
 - Verse Queue — add, present, remove queued verses
-- Recent Detections panel (UI ready, not yet populated by real detections)
+<!-- - Recent Detections panel (UI ready, not yet populated by real detections) -->
+- Recent Detections panel populated by transcript reference detection
 - 8-step onboarding tour overlay (Next/Back/Skip)
 - Resizable/draggable 4-pane layout (`iced::widget::pane_grid`)
 
@@ -78,6 +99,17 @@ app/logos/
         vumeter.rs    # segmented VU meter driven by live mic data
 ```
 
+## Implemented roadmap
+
+- Local `rhema-stt` Whisper provider and cancellation lifecycle.
+- Iced STT subscription feeding `Message::TranscriptUpdated`.
+- Reference parsing and asynchronous `Message::AddToDetections` updates.
+- Translation-specific verse loading and search through `rhema-bible`.
+
+See [milestone setup and verification](README-MILESTONE.md). Model and database files
+are runtime inputs and are not embedded in the executable.
+
+<!-- Previous roadmap retained for reference:
 ## Roadmap
 
 Wiring up real speech-to-text and verse detection:
@@ -88,6 +120,8 @@ Wiring up real speech-to-text and verse detection:
 - Parse detected verse references from the transcript and push them via
   `Message::AddToDetections`
 - Load verses from `rhema-bible`
+
+-->
 
 ## License
 

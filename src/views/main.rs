@@ -351,6 +351,7 @@ fn view_transcript_panel(app: &Ui) -> Element<'_, Message> {
         Rule::horizontal(1),
         Space::with_height(4),
         start_btn,
+        text(&app.speech_status).size(11).color(TEXT_SECONDARY),
     ]
     .spacing(0)
     .height(Length::Fill);
@@ -625,6 +626,9 @@ fn view_search_area(app: &Ui) -> Element<'_, Message> {
         )
         .padding(iced::Padding { top: 12.0, right: 12.0, bottom: 8.0, left: 12.0 }),
         Rule::horizontal(1),
+        text(app.search_error.as_deref().or(app.bible_error.as_deref())
+            .unwrap_or(if app.search_pending { "Searching…" } else { "" }))
+            .size(11).color(TEXT_SECONDARY),
         results_area,
     ]
     .spacing(0)

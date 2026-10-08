@@ -9,8 +9,9 @@ use crate::app::Message;
 use crate::theme::*;
 
 pub fn view(progress: f32) -> Element<'static, Message> {
+    let logo_path = crate::paths::asset_path("tcnj-logo.png");
     let image = container(
-        image("assets/tcnj-logo.png")
+        image(logo_path)
             .width(406)
             .height(200),
     );

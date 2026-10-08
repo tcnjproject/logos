@@ -85,9 +85,9 @@ pub fn ghost_button(label: &str, msg: Message) -> Element<'static, Message> {
 }
 
 /// Icon-style toolbar button
-pub fn toolbar_button_with_image(icon: &str, msg: Message) -> Element<'static, Message> {
+pub fn toolbar_button_with_image(icon: impl Into<std::path::PathBuf>, msg: Message) -> Element<'static, Message> {
     button(
-            svg(svg::Handle::from_path(icon))
+            svg(svg::Handle::from_path(icon.into()))
                 .width(24)
                 .height(24),
         )

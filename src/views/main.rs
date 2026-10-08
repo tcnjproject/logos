@@ -147,8 +147,8 @@ fn view_header(_app: &Ui) -> Element<'_, Message> {
         // toolbar_button("📋", Message::OpenSettings),
         // toolbar_button("📺", Message::OpenBroadcast),
         // toolbar_button("🌐", Message::OpenDisplay),
-        toolbar_button_with_image("assets/help.svg", Message::OpenAboutLogos),
-        toolbar_button_with_image("assets/settings.svg", Message::OpenSettings),
+        toolbar_button_with_image(crate::paths::asset_path("help.svg"), Message::OpenAboutLogos),
+        toolbar_button_with_image(crate::paths::asset_path("settings.svg"), Message::OpenSettings),
     ]
     .spacing(4)
     .align_y(Alignment::Center);
@@ -246,11 +246,11 @@ fn view_transcript_panel(app: &Ui) -> Element<'_, Message> {
     };
 
      // ── Transcript text area ─────
-    let mic_icon = svg(svg::Handle::from_path(if app.is_transcribing {
-        "assets/mic_on.svg"
+    let mic_icon = svg(svg::Handle::from_path(crate::paths::asset_path(if app.is_transcribing {
+        "mic_on.svg"
     } else {
-        "assets/mic_off.svg"
-    }))
+        "mic_off.svg"
+    })))
     .width(24)
     .height(24);
 
@@ -290,11 +290,11 @@ fn view_transcript_panel(app: &Ui) -> Element<'_, Message> {
 
     let start_btn = button(
         row![
-            svg(svg::Handle::from_path(if app.is_transcribing {
-                "assets/stop.svg"
+            svg(svg::Handle::from_path(crate::paths::asset_path(if app.is_transcribing {
+                "stop.svg"
             } else {
-                "assets/start.svg"
-            }))
+                "start.svg"
+            })))
             .width(24)
             .height(24)
             .style(|_: &iced::Theme, _| svg::Style {

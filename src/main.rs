@@ -4,7 +4,7 @@ mod audio;
 mod broadcast;
 mod ndi_worker;
 mod theme;
-mod paths;
+// mod tiles;
 mod views;
 mod data;
 
@@ -16,9 +16,6 @@ fn title(_state: &Ui) -> String {
 }
 
 pub fn main() -> iced::Result {
-    let icon_path = paths::asset_path("logos.png");
-    let icon = window::icon::from_file(&icon_path).ok();
-
     application(title, Ui::update, Ui::view)
         .subscription(Ui::subscription)
         .theme(Ui::theme)
@@ -26,7 +23,7 @@ pub fn main() -> iced::Result {
             size: Size::new(1400.0, 700.0),
             min_size: Some(Size::new(900.0, 600.0)),
             position: window::Position::Centered,
-            icon,
+             icon: Some(window::icon::from_file("assets/logos.png").expect("Failed to load icon")),
             ..Default::default()
         })
         .settings(Settings {

@@ -10,8 +10,14 @@ pub struct FrameRenderer {
 }
 
 impl FrameRenderer {
+    /// Try to load a system font and return a renderer, or `None` if no font is available.
     pub fn new() -> Option<Self> {
-        for path in crate::paths::system_font_candidates() {
+        let candidates = [
+            r"C:\Windows\Fonts\segoeui.ttf",
+            r"C:\Windows\Fonts\calibri.ttf",
+            r"C:\Windows\Fonts\arial.ttf",
+        ];
+        for path in &candidates {
             if let Ok(data) = std::fs::read(path) {
                 if let Ok(font) = Font::from_bytes(data.as_slice(), FontSettings::default()) {
                     return Some(Self { font });

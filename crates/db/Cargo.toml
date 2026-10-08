@@ -8,11 +8,8 @@ name = "build_bible_db"
 path = "src/main.rs"
 
 [dependencies]
-rusqlite = { version = "=0.31.0", features = ["bundled"] }
+rusqlite = { version = "0.34", features = ["bundled"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 phf = { version = "0.11", features = ["macros"] }
 anyhow = "1"
-
-[profile.release]
-opt-level = 3

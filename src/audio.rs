@@ -23,6 +23,7 @@ pub struct AudioShared {
     pub rms: f32,
     /// Peak level in [0.0, 1.0] (decays over time).
     pub peak: f32,
+    pub error: Option<String>,
 }
 
 /// Handle that keeps the cpal stream alive.
@@ -35,7 +36,14 @@ pub struct AudioCapture {
 impl AudioCapture {
     /// Open the default input device and start streaming.
     /// Returns `Err` with a human-readable message on failure.
+    // Previous entry point retained for callers that only need the meter.
+    #[allow(dead_code)]
     pub fn start() -> Result<Self, String> {
+        Self::start_with_sender(None)
+    }
+
+    // Previous signature: pub fn start() -> Result<Self, String>
+    pub fn start_with_sender(sender: Option<crossbeam_channel::Sender<Vec<i16>>>) -> Result<Self, String> {
         let host = cpal::default_host();
 
         let device = host
@@ -50,12 +58,19 @@ impl AudioCapture {
             samples: vec![0.0; WAVEFORM_LEN],
             rms: 0.0,
             peak: 0.0,
+            error: None,
         }));
 
         let stream = match config.sample_format() {
-            SampleFormat::F32 => build_stream::<f32>(&device, &config.into(), shared.clone()),
-            SampleFormat::I16 => build_stream::<i16>(&device, &config.into(), shared.clone()),
-            SampleFormat::U16 => build_stream::<u16>(&device, &config.into(), shared.clone()),
+            // Previous meter-only stream:
+            // SampleFormat::F32 => build_stream::<f32>(&device, &config.into(), shared.clone()),
+            SampleFormat::F32 => build_stream::<f32>(&device, &config.into(), shared.clone(), sender.clone()),
+            // Previous meter-only stream:
+            // SampleFormat::I16 => build_stream::<i16>(&device, &config.into(), shared.clone()),
+            SampleFormat::I16 => build_stream::<i16>(&device, &config.into(), shared.clone(), sender.clone()),
+            // Previous meter-only stream:
+            // SampleFormat::U16 => build_stream::<u16>(&device, &config.into(), shared.clone()),
+            SampleFormat::U16 => build_stream::<u16>(&device, &config.into(), shared.clone(), sender.clone()),
             fmt => Err(format!("Unsupported sample format: {fmt:?}")),
         }?;
 
@@ -74,22 +89,33 @@ fn build_stream<T>(
     device: &cpal::Device,
     config: &cpal::StreamConfig,
     shared: Arc<Mutex<AudioShared>>,
+    sender: Option<crossbeam_channel::Sender<Vec<i16>>>,
 ) -> Result<Stream, String>
 where
     T: cpal::Sample + cpal::SizedSample + ToF32,
 {
-    let err_fn = |e| eprintln!("Audio stream error: {e}");
+    // Previous callback: let err_fn = |e| eprintln!("Audio stream error: {e}");
+    let error_shared = shared.clone();
+    let err_fn = move |e| {
+        if let Ok(mut state) = error_shared.lock() { state.error = Some(format!("Microphone stream error: {e}")); }
+    };
 
     // Ring buffer accumulator
     let accumulator: Arc<Mutex<Vec<f32>>> = Arc::new(Mutex::new(Vec::new()));
     let acc_cb = accumulator.clone();
     let shared_cb = shared.clone();
 
+    let mut pcm = crate::speech::PcmConverter::new(config.sample_rate.0, config.channels);
     let stream = device
         .build_input_stream(
             config,
             move |data: &[T], _| {
                 let floats: Vec<f32> = data.iter().map(|s| s.to_f32()).collect();
+
+                // Nonblocking bounded delivery; never wait for inference in the audio callback.
+                if let Some(sender) = &sender {
+                    pcm.push(&floats, |frame| { let _ = sender.try_send(frame); });
+                }
 
                 // Accumulate into ring buffer
                 {

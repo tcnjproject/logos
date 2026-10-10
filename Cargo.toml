@@ -16,3 +16,10 @@ cpal = "0.15"
 rhema-broadcast = { path = "crates/broadcast" }
 rhema-bible = { path = "crates/bible" }
 fontdue = "0.9"
+rhema-stt = { path = "crates/stt", features = ["whisper"] }
+crossbeam-channel = "0.5"
+regex = "1"
+
+[dev-dependencies]
+rusqlite = { version = "0.34", features = ["bundled"] }
+async-trait = "0.1"

@@ -19,6 +19,10 @@ use crate::audio::{AudioCapture, AudioShared};
 use crate::data::*;
 use crate::ndi_worker::NdiHandle;
 use crate::views;
+use crate::speech::SpeechSession;
+use crate::scripture::{SqliteVerseRepository, VerseRepository};
+use crate::detection::{BibleReferenceDetector, ReferenceDetector};
+use rhema_stt::TranscriptEvent;
 
 // Some variants are handled in `update()` but not yet emitted by any view —
 // they're wired up ahead of features still in progress (real STT streaming,
@@ -33,6 +37,11 @@ pub enum Message {
     // Transcription
     ToggleTranscription,
     TranscriptUpdated(String),
+    SpeechEvent(u64, TranscriptEvent),
+    AudioCaptureFailed(u64, String),
+    BibleLoaded(Result<Arc<dyn VerseRepository>, String>),
+    SearchCompleted(u64, Result<Vec<Verse>, String>),
+    AddToDetections { session: u64, translation: String, result: Result<Vec<Verse>, String> },
 
     // Audio level - fired by subscription ~30fps when recording
     AudioFrame {
@@ -118,6 +127,14 @@ pub struct Logos {
     // Transcript
     pub is_transcribing: bool,
     pub transcript_text: String,
+    pub speech: Option<SpeechSession>,
+    pub speech_status: String,
+    pub scripture: Option<Arc<dyn VerseRepository>>,
+    pub bible_error: Option<String>,
+    pub search_error: Option<String>,
+    pub search_pending: bool,
+    search_revision: u64,
+    detector: Arc<dyn ReferenceDetector>,
     // pub audio_level: f32,
     
     // Live audio capture handle — Some(...) while mic is open, None when stopped.
@@ -212,6 +229,14 @@ impl Logos {
                 loading_start: Instant::now(),
                 is_transcribing: false,
                 transcript_text: String::new(),
+                speech: None,
+                speech_status: "Ready for offline transcription".into(),
+                scripture: None,
+                bible_error: None,
+                search_error: None,
+                search_pending: false,
+                search_revision: 0,
+                detector: Arc::new(BibleReferenceDetector),
                 audio_capture: None,
                 audio_shared: None,
                 waveform: vec![0.0; DISPLAY_BARS],
@@ -219,7 +244,8 @@ impl Logos {
                 audio_peak: 0.0,
                 search_query: String::new(),
                 search_mode: SearchMode::Book,
-                translation: Translation::Esv,
+                // Previous default: translation: Translation::Esv,
+                translation: Translation::Kjv,
                 translation_dropdown_open: false,
                 search_results: Vec::new(),
                 preview_verse: None,
@@ -238,7 +264,14 @@ impl Logos {
                 pane_grid_state: pane_grid::State::with_configuration(default_pane_config()),
                 ndi,
             },
-            Task::none(),
+            // Previous startup task: Task::none(),
+            Task::perform(async {
+                tokio::task::spawn_blocking(|| {
+                    let path = std::env::var_os("LOGOS_BIBLE_DB").map(PathBuf::from)
+                        .unwrap_or_else(|| PathBuf::from("data/rhema.db"));
+                    SqliteVerseRepository::open(&path)
+                }).await.map_err(|e| e.to_string()).and_then(|r| r)
+            }, Message::BibleLoaded),
         )
     }
 
@@ -269,15 +302,33 @@ impl Logos {
                     time::every(Duration::from_secs(1)).map(|_| Message::TimerTick),
                 ];
 
+                if let Some(session) = &self.speech {
+                    let id = session.id;
+                    subs.push(Subscription::run_with_id(
+                        ("speech", id),
+                        stream::unfold(session.events.clone(), move |events| async move {
+                            let event = events.lock().await.recv().await?;
+                            Some((Message::SpeechEvent(id, event), events))
+                        }),
+                    ));
+                }
+
                 // Audio polling — active only while mic is open
                 if let Some(shared) = &self.audio_shared {
                     let shared = shared.clone();
+                    let session_id = self.speech.as_ref().map(|session| session.id).unwrap_or(0);
+                    // Previous subscription identity: "audio_poll".
                     subs.push(Subscription::run_with_id(
-                        "audio_poll",
-                        stream::unfold(shared, |shared| async move {
+                        ("audio_poll", session_id),
+                        stream::unfold(shared, move |shared| async move {
                             tokio::time::sleep(Duration::from_millis(33)).await;
                             let (waveform, rms, peak) = {
                                 let st = shared.lock().unwrap();
+                                if let Some(error) = &st.error {
+                                    let error = error.clone();
+                                    drop(st);
+                                    return Some((Message::AudioCaptureFailed(session_id, error), shared));
+                                }
                                 let waveform = downsample_waveform(&st.samples, DISPLAY_BARS);
                                 (waveform, st.rms, st.peak)
                             };
@@ -327,71 +378,173 @@ impl Logos {
             // }
 
              // ── Transcription / mic ───────────────────────────────────────────
+//             Message::ToggleTranscription => {
+//                 if self.is_transcribing {
+//                     // Stop recording — drop the capture handle, which stops the stream
+//                     self.audio_capture = None;
+//                     self.audio_shared = None;
+//                     self.is_transcribing = false;
+//                     self.waveform = vec![0.0; DISPLAY_BARS];
+//                     self.audio_rms = 0.0;
+//                     self.audio_peak = 0.0;
+//                 } else {
+//                     // Start recording
+//                     match AudioCapture::start() {
+//                         Ok(capture) => {
+//                             let shared = capture.shared.clone();
+//                             self.audio_capture = Some(capture);
+//                             self.audio_shared = Some(shared);
+//                             self.is_transcribing = true;
+//                             self.transcript_text = String::new();
+//                         }
+//                         Err(e) => {
+//                             eprintln!("Mic error: {e}");
+//                             // Still flip the UI so the user sees something
+//                             self.is_transcribing = false;
+//                         }
+//                     }
+//                 }
+//             }
+//
             Message::ToggleTranscription => {
                 if self.is_transcribing {
-                    // Stop recording — drop the capture handle, which stops the stream
-                    self.audio_capture = None;
-                    self.audio_shared = None;
-                    self.is_transcribing = false;
-                    self.waveform = vec![0.0; DISPLAY_BARS];
-                    self.audio_rms = 0.0;
-                    self.audio_peak = 0.0;
+                    self.stop_transcription();
+                    self.speech_status = "Transcription stopped".into();
                 } else {
-                    // Start recording
-                    match AudioCapture::start() {
-                        Ok(capture) => {
-                            let shared = capture.shared.clone();
+                    match SpeechSession::local().and_then(|(session, sender)| {
+                        AudioCapture::start_with_sender(Some(sender)).map(|capture| (session, capture))
+                    }) {
+                        Ok((session, capture)) => {
+                            self.audio_shared = Some(capture.shared.clone());
                             self.audio_capture = Some(capture);
-                            self.audio_shared = Some(shared);
+                            self.speech = Some(session);
                             self.is_transcribing = true;
-                            self.transcript_text = String::new();
+                            self.transcript_text.clear();
+                            self.speech_status = "Loading Whisper model…".into();
                         }
-                        Err(e) => {
-                            eprintln!("Mic error: {e}");
-                            // Still flip the UI so the user sees something
-                            self.is_transcribing = false;
-                        }
+                        Err(error) => { self.speech_status = error; }
                     }
                 }
             }
- 
+
             // Audio frame from the polling subscription
+            Message::AudioCaptureFailed(id, error) => {
+                if self.speech.as_ref().map(|session| session.id) != Some(id) { return Task::none(); }
+                self.stop_transcription();
+                self.speech_status = error;
+            }
             Message::AudioFrame { waveform, rms, peak } => {
                 self.waveform = waveform;
                 self.audio_rms = rms;
                 self.audio_peak = peak;
             }
  
+// Previous transcript-only update:
+//             Message::TranscriptUpdated(text) => {
+//                 self.transcript_text = text;
+//             }
             Message::TranscriptUpdated(text) => {
                 self.transcript_text = text;
+                return self.detect_transcript();
+            }
+            Message::BibleLoaded(result) => {
+                match result {
+                    Ok(repository) => { self.scripture = Some(repository); self.bible_error = None; }
+                    Err(error) => { self.bible_error = Some(error); }
+                }
+            }
+            Message::SpeechEvent(id, event) => {
+                if self.speech.as_ref().map(|s| s.id) != Some(id) { return Task::none(); }
+                match event {
+                    TranscriptEvent::Final { transcript, .. } if !transcript.trim().is_empty() => {
+                        let mut text = self.transcript_text.clone();
+                        if !text.is_empty() { text.push(' '); }
+                        text.push_str(transcript.trim());
+                        // Bound transcript memory while keeping enough context for split references.
+                        if text.len() > 32_000 {
+                            let start = text.char_indices().find(|(i, _)| *i >= text.len() - 32_000).map(|(i, _)| i).unwrap_or(0);
+                            text = text[start..].to_string();
+                        }
+                        self.speech_status = "Listening (offline Whisper)".into();
+                        return self.update(Message::TranscriptUpdated(text));
+                    }
+                    TranscriptEvent::Error(error) => { self.stop_transcription(); self.speech_status = error; }
+                    TranscriptEvent::Disconnected => { self.stop_transcription(); self.speech_status = "Speech provider disconnected".into(); }
+                    TranscriptEvent::Connected => { self.speech_status = "Listening (offline Whisper)".into(); }
+                    _ => {}
+                }
+            }
+            Message::AddToDetections { session, translation, result } => {
+                if self.speech.as_ref().map(|s| s.id) != Some(session) || self.translation.label() != translation { return Task::none(); }
+                match result {
+                    Ok(verses) => {
+                        for verse in verses {
+                            self.recent_detections.retain(|v| v.reference != verse.reference || v.translation != verse.translation);
+                            self.recent_detections.insert(0, verse);
+                        }
+                        self.recent_detections.truncate(30);
+                    }
+                    Err(error) => self.speech_status = format!("Verse detection: {error}"),
+                }
+            }
+            Message::SearchCompleted(revision, result) => {
+                if revision != self.search_revision { return Task::none(); }
+                self.search_pending = false;
+                match result {
+                    Ok(verses) => { self.search_results = verses; self.search_error = None; }
+                    Err(error) => { self.search_results.clear(); self.search_error = Some(error); }
+                }
             }
 
             Message::SearchQueryChanged(q) => {
+                self.invalidate_search();
                 self.search_query = q;
                 self.translation_dropdown_open = false;
             }
 
             Message::SearchModeChanged(mode) => {
+                self.invalidate_search();
                 self.search_mode = mode;
                 self.search_results.clear();
                 self.search_query.clear();
             }
 
             Message::TranslationChanged(t) => {
+                self.invalidate_search();
                 self.translation = t;
                 self.translation_dropdown_open = false;
+                return self.detect_transcript();
             }
 
             Message::TranslationDropdownToggled => {
                 self.translation_dropdown_open = !self.translation_dropdown_open;
             }
 
+//             Message::SearchSubmitted => {
+//                 if !self.search_query.is_empty() {
+//                     // Simulate search results with sample data
+//                     self.search_results = sample_search_results(&self.search_query, &self.translation);
+//                 }
+//                 self.translation_dropdown_open = false;
+//             }
+//
             Message::SearchSubmitted => {
-                if !self.search_query.is_empty() {
-                    // Simulate search results with sample data
-                    self.search_results = sample_search_results(&self.search_query, &self.translation);
-                }
+                self.invalidate_search();
                 self.translation_dropdown_open = false;
+                if self.search_query.trim().is_empty() { return Task::none(); }
+                let Some(repository) = self.scripture.clone() else {
+                    self.search_error = Some(self.bible_error.clone().unwrap_or_else(|| "Bible database is still loading".into()));
+                    return Task::none();
+                };
+                self.search_pending = true;
+                let revision = self.search_revision;
+                let query = self.search_query.clone();
+                let mode = self.search_mode.clone();
+                let translation = self.translation.label().to_string();
+                return Task::perform(async move {
+                    tokio::task::spawn_blocking(move || repository.search(&query, &mode, &translation))
+                        .await.map_err(|e| e.to_string()).and_then(|r| r)
+                }, move |result| Message::SearchCompleted(revision, result));
             }
 
             // Queue
@@ -519,6 +672,42 @@ impl Logos {
         Task::none()
     }
 
+    fn invalidate_search(&mut self) {
+        self.search_revision = self.search_revision.wrapping_add(1);
+        self.search_pending = false;
+        self.search_error = None;
+        self.search_results.clear();
+    }
+
+    fn stop_transcription(&mut self) {
+        self.audio_capture = None;
+        self.audio_shared = None;
+        self.speech = None;
+        self.is_transcribing = false;
+        self.waveform.fill(0.0);
+        self.audio_rms = 0.0;
+        self.audio_peak = 0.0;
+    }
+
+    fn detect_transcript(&self) -> Task<Message> {
+        let Some(session) = &self.speech else { return Task::none(); };
+        let Some(repository) = self.scripture.clone() else { return Task::none(); };
+        let id = session.id;
+        let translation = self.translation.label().to_string();
+        let label = translation.clone();
+        // Only recent context is needed; completed detections are retained separately.
+        let recent = self.transcript_text.chars().rev().take(512).collect::<String>().chars().rev().collect::<String>();
+        let references = self.detector.detect(&recent);
+        if references.is_empty() { return Task::none(); }
+        Task::perform(async move {
+            tokio::task::spawn_blocking(move || {
+                let mut verses = Vec::new();
+                for reference in references { verses.extend(repository.lookup(&reference, &translation)?); }
+                Ok(verses)
+            }).await.map_err(|e| e.to_string()).and_then(|r| r)
+        }, move |result| Message::AddToDetections { session: id, translation: label.clone(), result })
+    }
+
     pub fn view(&self) -> Element<'_, Message> {
         match &self.loading {
             LoadingState::Loading(progress) => views::loading::view(*progress),
@@ -564,67 +753,68 @@ fn downsample_waveform(samples: &[f32], n_bars: usize) -> Vec<f32> {
     bars
 }
 
-fn sample_search_results(query: &str, translation: &Translation) -> Vec<Verse> {
-    let q = query.to_lowercase();
-
-    let all_verses = vec![
-        Verse::new(
-            "John 3:16",
-            "For God so loved the world that he gave his one and only Son, that whoever believes in him shall not perish but have eternal life.",
-            translation.label(),
-        ),
-        Verse::new(
-            "John 3:17",
-            "For God did not send his Son into the world to condemn the world, but to save the world through him.",
-            translation.label(),
-        ),
-        Verse::new(
-            "Romans 8:28",
-            "And we know that in all things God works for the good of those who love him, who have been called according to his purpose.",
-            translation.label(),
-        ),
-        Verse::new(
-            "Psalm 23:1",
-            "The LORD is my shepherd, I lack nothing.",
-            translation.label(),
-        ),
-        Verse::new(
-            "Philippians 4:13",
-            "I can do all this through him who gives me strength.",
-            translation.label(),
-        ),
-        Verse::new(
-            "Isaiah 40:31",
-            "But those who hope in the LORD will renew their strength. They will soar on wings like eagles; they will run and not grow weary, they will walk and not be faint.",
-            translation.label(),
-        ),
-        Verse::new(
-            "Jeremiah 29:11",
-            "For I know the plans I have for you, declares the LORD, plans to prosper you and not to harm you, plans to give you hope and a future.",
-            translation.label(),
-        ),
-        Verse::new(
-            "Proverbs 3:5",
-            "Trust in the LORD with all your heart and lean not on your own understanding.",
-            translation.label(),
-        ),
-        Verse::new(
-            "Jonah 2:8",
-            "Those who regard worthless idols forsake their own Mercy.",
-            translation.label(),
-        ),
-    ];
-
-    all_verses
-        .into_iter()
-        .filter(|v| {
-            v.reference.to_lowercase().contains(&q)
-                || v.text.to_lowercase().contains(&q)
-        })
-        .take(6)
-        .collect()
-}
-
+// Legacy sample search retained for reference; production uses rhema-bible.
+// fn sample_search_results(query: &str, translation: &Translation) -> Vec<Verse> {
+//     let q = query.to_lowercase();
+//
+//     let all_verses = vec![
+//         Verse::new(
+//             "John 3:16",
+//             "For God so loved the world that he gave his one and only Son, that whoever believes in him shall not perish but have eternal life.",
+//             translation.label(),
+//         ),
+//         Verse::new(
+//             "John 3:17",
+//             "For God did not send his Son into the world to condemn the world, but to save the world through him.",
+//             translation.label(),
+//         ),
+//         Verse::new(
+//             "Romans 8:28",
+//             "And we know that in all things God works for the good of those who love him, who have been called according to his purpose.",
+//             translation.label(),
+//         ),
+//         Verse::new(
+//             "Psalm 23:1",
+//             "The LORD is my shepherd, I lack nothing.",
+//             translation.label(),
+//         ),
+//         Verse::new(
+//             "Philippians 4:13",
+//             "I can do all this through him who gives me strength.",
+//             translation.label(),
+//         ),
+//         Verse::new(
+//             "Isaiah 40:31",
+//             "But those who hope in the LORD will renew their strength. They will soar on wings like eagles; they will run and not grow weary, they will walk and not be faint.",
+//             translation.label(),
+//         ),
+//         Verse::new(
+//             "Jeremiah 29:11",
+//             "For I know the plans I have for you, declares the LORD, plans to prosper you and not to harm you, plans to give you hope and a future.",
+//             translation.label(),
+//         ),
+//         Verse::new(
+//             "Proverbs 3:5",
+//             "Trust in the LORD with all your heart and lean not on your own understanding.",
+//             translation.label(),
+//         ),
+//         Verse::new(
+//             "Jonah 2:8",
+//             "Those who regard worthless idols forsake their own Mercy.",
+//             translation.label(),
+//         ),
+//     ];
+//
+//     all_verses
+//         .into_iter()
+//         .filter(|v| {
+//             v.reference.to_lowercase().contains(&q)
+//                 || v.text.to_lowercase().contains(&q)
+//         })
+//         .take(6)
+//         .collect()
+// }
+//
 fn version_parts(version: &str) -> (u32, u32, u32) {
     let mut parts = version.split('.').map(|part| part.parse::<u32>().unwrap_or(0));
 

@@ -7,6 +7,9 @@ mod theme;
 // mod tiles;
 mod views;
 mod data;
+mod speech;
+mod scripture;
+mod detection;
 
 use app::Logos as Ui;
 use iced::{application, Settings, window, Size};

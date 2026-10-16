@@ -24,3 +24,10 @@ futures-util = "0.3"
 [dev-dependencies]
 rusqlite = { version = "0.34", features = ["bundled"] }
 async-trait = "0.1"
+
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1
+opt-level = "z"
+panic = "abort"

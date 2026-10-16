@@ -11,32 +11,6 @@ use iced::{
 use crate::app::{self, Message};
 use crate::theme::*;
 
-/// Panel container with dark background and border
-// pub fn panel<'a>(
-//     content: impl Into<Element<'a, Message>>,
-// ) -> Element<'a, Message> {
-//     container(content)
-//         .padding(12)
-//         .style(|_: &Theme| iced::widget::container::Style {
-//             background: Some(Background::Color(BG_PANEL)),
-//             border: Border {
-//                 color: BORDER,
-//                 width: 1.0,
-//                 radius: 8.0.into(),
-//             },
-//             ..Default::default()
-//         })
-//         .into()
-// }
-
-// /// Section header label
-// pub fn section_label(label: &str) -> Element<'static, Message> {
-//     text(label.to_string())
-//         .size(13)
-//         .color(TEXT_SECONDARY)
-//         .into()
-// }
-
 /// Orange accent button — takes &str and converts to owned String to satisfy 'static
 pub fn accent_button(label: &str, msg: Message) -> Element<'static, Message> {
     let label = label.to_string();

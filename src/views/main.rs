@@ -135,7 +135,7 @@ fn about_dialog() -> Element<'static, Message> {
                 .color(TEXT_SECONDARY),
             Rule::horizontal(1),
             text("Contributors").size(14).color(TEXT_PRIMARY),
-            text("Austin Aigbe\nAdesola Adeyemi\nFemi Oshin\nEdozie Nwokoye\nHossana Etim\nMfon Ekanem")
+            text("Austin Aigbe, Adesola Adeyemi, Femi Oshin, Edozie Nwokoye, Hossana Etim,\nMfon Ekanem, Abimbola Adegun")
                 .size(13)
                 .color(TEXT_SECONDARY),
             Rule::horizontal(1),

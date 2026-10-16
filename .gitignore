@@ -1,9 +1,8 @@
 target
-bible.json
 crates/db/target
-crates/db/rhema.db
-crates/db/sources/*
-crates/db/cross-refs/*
+#crates/db/rhema.db
+#crates/db/sources/*
+#crates/db/cross-refs/*
 crates/db/.claude
 /models/whisper/*.bin
 

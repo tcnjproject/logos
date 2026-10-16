@@ -1,4 +1,7 @@
-// TCNJ AI/ML Group
+// Copyright (c) 2026 The Covenant Nation Jesutedo (TCNJ) <AI/ML Group>
+//
+// This file is part of the logos crate, which is licensed under the MIT or Apache-2.0 license. 
+// See the LICENSE file in the root of this repository for details.
 
 use iced::{
     widget::{
@@ -112,7 +115,7 @@ fn view_header(_app: &Ui) -> Element<'_, Message> {
         //     .height(60),
         text("LOGOS").size(16).color(ACCENT),
         Space::with_width(8),
-        container(text("Beta").size(10).color(TEXT_MUTED))
+        container(text("Alpha").size(10).color(TEXT_MUTED))
             .padding([2, 6])
             .style(|_: &iced::Theme| iced::widget::container::Style {
                 background: Some(Background::Color(BG_PANEL)),

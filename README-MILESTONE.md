@@ -10,10 +10,10 @@ Install Rust with edition 2024 support, a C/C++ toolchain, and CMake for whisper
 On macOS, use Xcode Command Line Tools. On Linux, CPAL also requires ALSA development
 libraries (for example `libasound2-dev` on Debian/Ubuntu).
 
-From the `logos` project directory, provide these runtime files:
+From the `logos` project directory, provide these runtime files if they are not already included:
 
 - `models/whisper/ggml-base.en.bin`: a Whisper GGML English model compatible with
-  `whisper-rs` 0.16. See the [official whisper.cpp model instructions](https://github.com/ggml-org/whisper.cpp/tree/master/models).
+  `whisper-rs` 0.16. See the [official whisper.cpp model instructions](https://github.com/ggml-org/whisper.cpp/tree/master/models). The `ggml` model can be downloaded directly from [huggingface](https://huggingface.co/ggerganov/whisper.cpp/tree/main).
 - `data/rhema.db`: a populated database with the schema built by `crates/db`, including
   translations, books, verses, and the FTS5 index.
 

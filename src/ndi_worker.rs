@@ -1,4 +1,7 @@
-// TCNJ AI/ML Group
+// Copyright (c) 2026 The Covenant Nation Jesutedo (TCNJ) <AI/ML Group>
+//
+// This file is part of the logos crate, which is licensed under the MIT or Apache-2.0 license. 
+// See the LICENSE file in the root of this repository for details.
 //
 // Runs the NDI session (library load, frame rendering, frame send) on a
 // dedicated background thread so the iced update/view cycle never blocks on

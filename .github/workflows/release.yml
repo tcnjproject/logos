@@ -1,0 +1,139 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  # Read name + version straight from Cargo so nothing is hardcoded.
+  metadata:
+    name: Read Cargo metadata
+    runs-on: ubuntu-latest
+    outputs:
+      bin_name: ${{ steps.cargo.outputs.bin_name }}
+      version:  ${{ steps.cargo.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract name and version from Cargo.toml
+        id: cargo
+        shell: bash
+        run: |
+          META=$(cargo metadata --no-deps --format-version 1)
+
+          NAME=$(echo "$META" | jq -r '.packages[0].name')
+          VERSION=$(echo "$META" | jq -r '.packages[0].version')
+
+          echo "bin_name=$NAME"   >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+          echo "Crate name:    $NAME"
+          echo "Crate version: $VERSION"
+
+      - name: Verify tag matches Cargo version
+        shell: bash
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"   # strip leading 'v'
+          if [ "$TAG" != "${{ steps.cargo.outputs.version }}" ]; then
+            echo "::error::Tag v$TAG does not match Cargo.toml version ${{ steps.cargo.outputs.version }}"
+            exit 1
+          fi
+
+  build:
+    name: Build ${{ matrix.target }}
+    needs: metadata
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-13          # Intel
+            target: x86_64-apple-darwin
+            archive: tar.gz
+          - os: macos-latest      # Apple Silicon
+            target: aarch64-apple-darwin
+            archive: tar.gz
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            archive: zip
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+          toolchain: '1.85'
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      - name: Build release binary
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Package (macOS)
+        if: matrix.archive == 'tar.gz'
+        shell: bash
+        env:
+          BIN_NAME: ${{ needs.metadata.outputs.bin_name }}
+          VERSION:  ${{ needs.metadata.outputs.version }}
+          TARGET:   ${{ matrix.target }}
+        run: |
+          cd "target/${TARGET}/release"
+          ARTIFACT="${BIN_NAME}-v${VERSION}-${TARGET}.tar.gz"
+          tar czf "$ARTIFACT" "${BIN_NAME}"
+          shasum -a 256 "$ARTIFACT" > "${ARTIFACT}.sha256"
+          mv "$ARTIFACT" "${ARTIFACT}.sha256" "$GITHUB_WORKSPACE/"
+
+      - name: Package (Windows)
+        if: matrix.archive == 'zip'
+        shell: bash
+        env:
+          BIN_NAME: ${{ needs.metadata.outputs.bin_name }}
+          VERSION:  ${{ needs.metadata.outputs.version }}
+          TARGET:   ${{ matrix.target }}
+        run: |
+          cd "target/${TARGET}/release"
+          ARTIFACT="${BIN_NAME}-v${VERSION}-${TARGET}.zip"
+          7z a "$ARTIFACT" "${BIN_NAME}.exe"
+          HASH=$(certutil -hashfile "$ARTIFACT" SHA256 | sed -n 2p | tr -d ' \r')
+          echo "${HASH}  ${ARTIFACT}" > "${ARTIFACT}.sha256"
+          mv "$ARTIFACT" "${ARTIFACT}.sha256" "$GITHUB_WORKSPACE/"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ matrix.target }}
+          path: |
+            *.tar.gz
+            *.zip
+            *.sha256
+
+  release:
+    name: Publish Release
+    needs: [metadata, build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          name: v${{ needs.metadata.outputs.version }}
+          tag_name: ${{ github.ref_name }}
+          generate_release_notes: true
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-rc') || contains(github.ref_name, '-beta') || contains(github.ref_name, '-alpha') }}

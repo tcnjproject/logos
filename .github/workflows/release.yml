@@ -69,6 +69,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
+          toolchain: '1.88'
 
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2

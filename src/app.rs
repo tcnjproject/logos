@@ -98,6 +98,7 @@ pub enum Message {
     // Menubar
     // ToggleHelpMenu,
     OpenAboutLogos,
+    CloseAboutLogos,
 
     // Pane grid
     PaneResized(pane_grid::ResizeEvent),
@@ -179,6 +180,7 @@ pub struct Logos {
 
     // Menubar
     pub help_menu_open: bool,
+    pub about_dialog_open: bool,
 
     // Timer (remaining time in seconds)
     pub remaining_seconds: u32,
@@ -272,6 +274,7 @@ impl Logos {
                 },
                 show_update_banner: check_for_update(),
                 help_menu_open: false,
+                about_dialog_open: false,
                 remaining_seconds: 3600,
                 pane_grid_state: pane_grid::State::with_configuration(default_pane_config()),
                 ndi,
@@ -650,7 +653,11 @@ impl Logos {
 
             Message::OpenAboutLogos => {
                 self.help_menu_open = false;
-                // Placeholder for the About Logos action.
+                self.about_dialog_open = true;
+            }
+
+            Message::CloseAboutLogos => {
+                self.about_dialog_open = false;
             }
 
             Message::PaneDragged(event) => {

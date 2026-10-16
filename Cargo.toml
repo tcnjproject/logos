@@ -1,9 +1,10 @@
 [package]
 name = "logos"
-version = "0.1.5"
+version = "0.1.6"
 edition = "2024"
-authors = ["The Covenant Nation Jesutedo (TCNJ) AI/ML Group"]
+authors = ["The Covenant Nation Jesutedo (TCNJ) <AI/ML Group>"]
 license = "MIT OR Apache-2.0"
+build = "build.rs"
 
 [[bin]]
 name = "logos"

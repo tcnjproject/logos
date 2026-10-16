@@ -104,7 +104,109 @@ fn build_overlay<'a>(app: &'a Ui, base: Element<'a, Message>) -> Element<'a, Mes
         layers.push(positioned.into());
     }
 
+    if app.about_dialog_open {
+        layers.push(about_dialog().into());
+    }
+
     stack(layers).into()
+}
+
+fn about_dialog() -> Element<'static, Message> {
+    let details = scrollable(
+        column![
+            text("Logos").size(22).color(TEXT_PRIMARY),
+            text("An AI-powered desktop application for automatically detecting and presenting Bible verses and lyrics during a live service.")
+                .size(13)
+                .color(TEXT_SECONDARY),
+            Rule::horizontal(1),
+            text("Release").size(14).color(TEXT_PRIMARY),
+            text(format!(
+                "Version {}  |  Git build {} ({})",
+                env!("CARGO_PKG_VERSION"),
+                env!("LOGOS_GIT_BUILD_NUMBER"),
+                env!("LOGOS_GIT_COMMIT"),
+            ))
+            .size(13)
+            .color(TEXT_SECONDARY),
+            Rule::horizontal(1),
+            text("Copyright").size(14).color(TEXT_PRIMARY),
+            text("© 2026 The Covenant Nation Jesutedo (TCNJ) <AI/ML Group>")
+                .size(13)
+                .color(TEXT_SECONDARY),
+            Rule::horizontal(1),
+            text("Contributors").size(14).color(TEXT_PRIMARY),
+            text("Austin Aigbe\nAdesola Adeyemi\nFemi Oshin\nEdozie Nwokoye\nHossana Etim\nMfon Ekanem")
+                .size(13)
+                .color(TEXT_SECONDARY),
+            Rule::horizontal(1),
+            text("Licenses").size(14).color(TEXT_PRIMARY),
+            text("Logos and rhema-broadcast are dual-licensed under MIT or Apache-2.0. The Bible, broadcast, and speech source crates include MIT-licensed code by OpenBezal. The NDI runtime is proprietary software from Vizrt NDI AB and is governed by its separate license.")
+                .size(13)
+                .color(TEXT_SECONDARY),
+        ]
+        .spacing(10)
+        .padding([0, 4]),
+    )
+    .height(Length::Fixed(460.0));
+
+    let close = button(text("Close").size(13).color(Color::WHITE))
+        .padding([7, 18])
+        .style(|_: &iced::Theme, status| {
+            let background = match status {
+                button::Status::Hovered | button::Status::Pressed => ACCENT_HOVER,
+                _ => ACCENT,
+            };
+            button::Style {
+                background: Some(Background::Color(background)),
+                border: Border {
+                    radius: 6.0.into(),
+                    ..Default::default()
+                },
+                text_color: Color::WHITE,
+                ..Default::default()
+            }
+        })
+        .on_press(Message::CloseAboutLogos);
+
+    let card = container(
+        column![
+            row![
+                text("About Logos").size(18).color(TEXT_PRIMARY),
+                Space::with_width(Length::Fill),
+                close,
+            ]
+            .align_y(Alignment::Center),
+            Space::with_height(12),
+            details,
+        ]
+        .spacing(0),
+    )
+    .width(560)
+    .padding(20)
+    .style(|_: &iced::Theme| iced::widget::container::Style {
+        background: Some(Background::Color(BG_PANEL)),
+        border: Border {
+            color: BORDER,
+            width: 1.0,
+            radius: 10.0.into(),
+        },
+        shadow: iced::Shadow {
+            color: Color::from_rgba(0.0, 0.0, 0.0, 0.55),
+            offset: iced::Vector::new(0.0, 4.0),
+            blur_radius: 18.0,
+        },
+        ..Default::default()
+    });
+
+    container(card)
+        .width(Length::Fill)
+        .height(Length::Fill)
+        .center(Length::Fill)
+        .style(|_: &iced::Theme| iced::widget::container::Style {
+            background: Some(Background::Color(Color::from_rgba(0.0, 0.0, 0.0, 0.72))),
+            ..Default::default()
+        })
+        .into()
 }
 
 fn view_header(_app: &Ui) -> Element<'_, Message> {

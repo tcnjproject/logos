@@ -68,60 +68,8 @@ cargo build --release
 # binary at target/release/logos(.exe)
 ```
 
-## Folder structure
-
-```
-app/logos/
-  Cargo.toml           # package "logos" — iced, tokio, cpal, fontdue, rhema-broadcast
-  assets/              # icons (mic, start/stop, settings, help) and logo images
-  crates/                 # Third party crates
-    bible/             # [rhema-bible](https://github.com/openbezal/rhema/tree/main/src-tauri/crates/bible)
-    db/                # Ported from https://github.com/openbezal/rhema/blob/main/data/build-bible-db.ts
-    broadcast/         # [rhema-broadcast](https://github.com/openbezal/rhema/tree/main/src-tauri/crates/broadcast)
-      src/lib.rs
-      src/ndi.rs       # loads the NDI runtime via libloading, start/stop/send_frame
-      ndi/             # bundled NDI runtime libraries (dll/dylib/so)
-  src/
-    main.rs           # iced application entry point, window setup
-    app.rs            # Logos state, Message enum, update()/subscription(), pane layout
-    audio.rs          # AudioCapture — cpal mic stream, RMS/peak/waveform on a shared buffer
-    broadcast.rs      # FrameRenderer — draws verse text into an RGBA frame (fontdue)
-    ndi_worker.rs     # background thread owning the NDI session; GUI talks to it via a channel
-    data.rs           # Verse, Translation, SearchMode, TourStep, LoadingState
-    theme.rs          # color constants
-    views/
-      mod.rs
-      loading.rs      # splash screen
-      main.rs         # 4-panel main layout (transcript, search/preview, live, queue/detections)
-      components.rs   # reusable widgets (buttons, tour card, update banner, toggle switch)
-      waveform/
-        mod.rs
-        vumeter.rs    # segmented VU meter driven by live mic data
-```
-
-## Implemented roadmap
-
-- Local `rhema-stt` Whisper provider and cancellation lifecycle.
-- Iced STT subscription feeding `Message::TranscriptUpdated`.
-- Reference parsing and asynchronous `Message::AddToDetections` updates.
-- Translation-specific verse loading and search through `rhema-bible`.
-
 See [milestone setup and verification](README-MILESTONE.md). Model and database files
 are runtime inputs and are not embedded in the executable.
-
-<!-- Previous roadmap retained for reference:
-## Roadmap
-
-Wiring up real speech-to-text and verse detection:
-
-- Use [`rhema-stt`](https://github.com/openbezal/rhema/tree/main/src-tauri/crates/stt)
-- Add a `Subscription` that connects to the STT and maps incoming transcripts to
-  `Message::TranscriptUpdated`
-- Parse detected verse references from the transcript and push them via
-  `Message::AddToDetections`
-- Load verses from `rhema-bible`
-
--->
 
 ## License
 

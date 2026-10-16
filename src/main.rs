@@ -15,6 +15,7 @@ mod data;
 mod speech;
 mod scripture;
 mod detection;
+mod download_whisper_model;
 
 use app::Logos as Ui;
 use iced::{application, Settings, window, Size};

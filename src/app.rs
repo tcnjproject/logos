@@ -36,6 +36,9 @@ pub enum Message {
     // Loading
     Tick,
     LoadingComplete,
+    WhisperModelDownloaded(
+        Result<crate::download_whisper_model::DownloadOutcome, String>,
+    ),
 
     // Transcription
     ToggleTranscription,
@@ -125,7 +128,9 @@ pub const LATEST_VERSION: &str = "0.1.0";
 
 pub struct Logos {
     pub loading: LoadingState,
-    pub loading_start: Instant,
+    whisper_download_progress: Arc<Mutex<(u64, Option<u64>)>>,
+    splash_status: Option<String>,
+    splash_complete_at: Option<Instant>,
 
     // Transcript
     pub is_transcribing: bool,
@@ -209,6 +214,8 @@ impl Logos {
     pub fn new() -> (Self, Task<Message>) {
         let marker_path = tour_marker_path();
         let should_show = should_show_tour(&marker_path);
+        let whisper_download_progress = Arc::new(Mutex::new((0, None)));
+        let download_progress = Arc::clone(&whisper_download_progress);
         // let update_available = check_for_update();
 
         if should_show {
@@ -229,7 +236,9 @@ impl Logos {
         (
             Self {
                 loading: LoadingState::Loading(0.0),
-                loading_start: Instant::now(),
+                whisper_download_progress,
+                splash_status: None,
+                splash_complete_at: None,
                 is_transcribing: false,
                 transcript_text: String::new(),
                 speech: None,
@@ -267,14 +276,22 @@ impl Logos {
                 pane_grid_state: pane_grid::State::with_configuration(default_pane_config()),
                 ndi,
             },
-            // Previous startup task: Task::none(),
-            Task::perform(async {
-                tokio::task::spawn_blocking(|| {
-                    let path = std::env::var_os("LOGOS_BIBLE_DB").map(PathBuf::from)
-                        .unwrap_or_else(|| PathBuf::from("data/rhema.db"));
-                    SqliteVerseRepository::open(&path)
-                }).await.map_err(|e| e.to_string()).and_then(|r| r)
-            }, Message::BibleLoaded),
+            Task::batch([
+                Task::perform(async {
+                    tokio::task::spawn_blocking(|| {
+                        let path = std::env::var_os("LOGOS_BIBLE_DB").map(PathBuf::from)
+                            .unwrap_or_else(|| PathBuf::from("data/rhema.db"));
+                        SqliteVerseRepository::open(&path)
+                    }).await.map_err(|e| e.to_string()).and_then(|r| r)
+                }, Message::BibleLoaded),
+                Task::perform(async move {
+                    crate::download_whisper_model::download_model(|downloaded, total| {
+                        *download_progress.lock().unwrap() = (downloaded, total);
+                    })
+                    .await
+                    .map_err(|error| error.to_string())
+                }, Message::WhisperModelDownloaded),
+            ]),
         )
     }
 
@@ -358,12 +375,40 @@ impl Logos {
     pub fn update(&mut self, message: Message) -> Task<Message> {
         match message {
             Message::Tick => {
-                let elapsed = self.loading_start.elapsed().as_secs_f32();
-                let progress = (elapsed / 2.5).min(1.0); // 2.5s loading
-                if progress >= 1.0 {
-                    self.loading = LoadingState::Ready;
-                } else {
-                    self.loading = LoadingState::Loading(progress);
+                if let Some(complete_at) = self.splash_complete_at {
+                    if complete_at.elapsed() >= Duration::from_secs(1) {
+                        self.loading = LoadingState::Ready;
+                    } else {
+                        self.loading = LoadingState::Loading(1.0);
+                    }
+                    return Task::none();
+                }
+                let (downloaded, total) = *self.whisper_download_progress.lock().unwrap();
+                let progress = total
+                    .filter(|total| *total > 0)
+                    .map(|total| (downloaded as f32 / total as f32).clamp(0.0, 1.0))
+                    .unwrap_or(0.0);
+                self.loading = LoadingState::Loading(progress);
+            }
+            Message::WhisperModelDownloaded(result) => {
+                match result {
+                    Ok(outcome) => {
+                        self.splash_status = Some(match outcome {
+                            crate::download_whisper_model::DownloadOutcome::AlreadyPresent => {
+                                "Whisper model already downloaded".into()
+                            }
+                            crate::download_whisper_model::DownloadOutcome::Downloaded => {
+                                "Whisper model downloaded".into()
+                            }
+                        });
+                        self.speech_status = "Ready for offline transcription".into();
+                        self.splash_complete_at = Some(Instant::now());
+                        self.loading = LoadingState::Loading(1.0);
+                    }
+                    Err(error) => {
+                        self.speech_status = format!("Whisper model download failed: {error}");
+                        self.loading = LoadingState::Ready;
+                    }
                 }
             }
 
@@ -372,43 +417,6 @@ impl Logos {
                     self.remaining_seconds -= 1;
                 }
             }
-
-            // Message::ToggleTranscription => {
-            //     self.is_transcribing = !self.is_transcribing;
-            //     if self.is_transcribing {
-            //         self.transcript_text = String::new();
-            //     }
-            // }
-
-             // ── Transcription / mic ───────────────────────────────────────────
-//             Message::ToggleTranscription => {
-//                 if self.is_transcribing {
-//                     // Stop recording — drop the capture handle, which stops the stream
-//                     self.audio_capture = None;
-//                     self.audio_shared = None;
-//                     self.is_transcribing = false;
-//                     self.waveform = vec![0.0; DISPLAY_BARS];
-//                     self.audio_rms = 0.0;
-//                     self.audio_peak = 0.0;
-//                 } else {
-//                     // Start recording
-//                     match AudioCapture::start() {
-//                         Ok(capture) => {
-//                             let shared = capture.shared.clone();
-//                             self.audio_capture = Some(capture);
-//                             self.audio_shared = Some(shared);
-//                             self.is_transcribing = true;
-//                             self.transcript_text = String::new();
-//                         }
-//                         Err(e) => {
-//                             eprintln!("Mic error: {e}");
-//                             // Still flip the UI so the user sees something
-//                             self.is_transcribing = false;
-//                         }
-//                     }
-//                 }
-//             }
-//
             Message::ToggleTranscription => {
                 if self.is_transcribing {
                     self.stop_transcription();
@@ -713,7 +721,22 @@ impl Logos {
 
     pub fn view(&self) -> Element<'_, Message> {
         match &self.loading {
-            LoadingState::Loading(progress) => views::loading::view(*progress),
+            LoadingState::Loading(progress) => {
+                let (downloaded, total) = *self.whisper_download_progress.lock().unwrap();
+                let status = self.splash_status.clone().unwrap_or_else(|| match total {
+                    Some(total) if total > 0 => format!(
+                        "Downloading Whisper model: {:.1} MB / {:.1} MB",
+                        downloaded as f64 / 1_048_576.0,
+                        total as f64 / 1_048_576.0,
+                    ),
+                    _ if downloaded > 0 => format!(
+                        "Downloading Whisper model: {:.1} MB",
+                        downloaded as f64 / 1_048_576.0,
+                    ),
+                    _ => "Preparing Whisper model download...".into(),
+                });
+                views::loading::view(*progress, status)
+            }
             LoadingState::Ready => views::main::view(self),
         }
     }

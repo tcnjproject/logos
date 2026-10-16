@@ -1,6 +1,6 @@
 [package]
 name = "logos"
-version = "0.1.4-alpha"
+version = "0.1.5"
 edition = "2024"
 authors = ["The Covenant Nation Jesutedo (TCNJ) AI/ML Group"]
 license = "MIT OR Apache-2.0"
@@ -19,7 +19,8 @@ fontdue = "0.9"
 rhema-stt = { path = "crates/stt", features = ["whisper"] }
 crossbeam-channel = "0.5"
 regex = "1"
-
+reqwest = { version = "0.12", features = ["stream"] }
+futures-util = "0.3"
 [dev-dependencies]
 rusqlite = { version = "0.34", features = ["bundled"] }
 async-trait = "0.1"
